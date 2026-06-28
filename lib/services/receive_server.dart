@@ -190,14 +190,41 @@ class ReceiveServer extends ChangeNotifier {
   /// Ruta donde se guardan los archivos recibidos (para mostrarla en la UI).
   String? saveDirPath;
 
+  /// Carpeta elegida por el usuario. Si es null, se usa la de la app.
+  String? customSaveDir;
+
+  /// Cambia la carpeta de recepción y refresca la ruta mostrada.
+  Future<void> setCustomSaveDir(String? path) async {
+    customSaveDir = path;
+    await _saveDirectory();
+  }
+
   /// Carpeta donde se guardan los archivos recibidos.
   ///
-  /// Usa siempre el directorio de documentos de la app: en macOS está dentro
-  /// del contenedor del sandbox, por lo que siempre se puede escribir. En
-  /// escritorio se intenta además enlazar/copiar a Descargas para comodidad,
-  /// pero la escritura principal nunca falla.
+  /// Si el usuario eligió una carpeta, se usa esa. Si no (o si no es
+  /// escribible), se cae al directorio de documentos de la app, que en macOS
+  /// está dentro del contenedor del sandbox y siempre se puede escribir.
   Future<Directory> _saveDirectory() async {
     if (saveDirectoryOverride != null) return saveDirectoryOverride!;
+
+    final custom = customSaveDir;
+    if (custom != null && custom.isNotEmpty) {
+      try {
+        final dir = Directory(custom);
+        if (!await dir.exists()) await dir.create(recursive: true);
+        // Comprueba que se puede escribir realmente.
+        final probe = File('${dir.path}/.wiwy_write_test');
+        await probe.writeAsString('ok');
+        await probe.delete();
+        saveDirPath = dir.path;
+        notifyListeners();
+        return dir;
+      } on Object catch (e) {
+        debugPrint('Carpeta elegida no escribible ($custom): $e');
+        // cae al directorio de la app
+      }
+    }
+
     final base = await getApplicationDocumentsDirectory();
     final dir = Directory('${base.path}/WiwyTransfer');
     if (!await dir.exists()) await dir.create(recursive: true);

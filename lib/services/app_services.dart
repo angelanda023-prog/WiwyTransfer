@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/device.dart';
 import 'discovery_service.dart';
@@ -22,6 +23,8 @@ class AppServices {
   static AppServices? _instance;
   static AppServices get instance => _instance!;
 
+  static const String _kSaveDir = 'save_dir';
+
   final Device self;
   final DiscoveryService discovery;
   final ReceiveServer receiver;
@@ -39,10 +42,26 @@ class AppServices {
     );
 
     final services = AppServices._(self);
+
+    // Carga la carpeta de recepción elegida previamente, si existe.
+    final prefs = await SharedPreferences.getInstance();
+    services.receiver.customSaveDir = prefs.getString(_kSaveDir);
+
     await services.receiver.start();
     await services.discovery.start();
     _instance = services;
     return services;
+  }
+
+  /// Cambia la carpeta de recepción y la recuerda para próximas sesiones.
+  Future<void> setSaveDirectory(String? path) async {
+    await receiver.setCustomSaveDir(path);
+    final prefs = await SharedPreferences.getInstance();
+    if (path == null || path.isEmpty) {
+      await prefs.remove(_kSaveDir);
+    } else {
+      await prefs.setString(_kSaveDir, path);
+    }
   }
 
   /// Nombre amigable por defecto para este dispositivo.

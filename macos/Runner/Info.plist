@@ -28,5 +28,12 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>WiwyTransfer usa la red local para descubrir dispositivos cercanos y transferir archivos directamente entre ellos.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_wiwytransfer._udp</string>
+		<string>_wiwytransfer._tcp</string>
+	</array>
 </dict>
 </plist>

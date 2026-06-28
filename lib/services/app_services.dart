@@ -34,7 +34,7 @@ class AppServices {
       alias: _defaultAlias(),
       fingerprint: _randomFingerprint(),
       ip: ip,
-      port: ReceiveServer.port,
+      port: ReceiveServer.defaultPort,
       deviceType: Device.currentPlatformType(),
     );
 

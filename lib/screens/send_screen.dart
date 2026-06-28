@@ -33,6 +33,49 @@ class _SendScreenState extends State<SendScreen> {
     }
   }
 
+  Future<void> _sendToManualIp() async {
+    if (_selectedFile == null) {
+      _snack('Primero selecciona un archivo');
+      return;
+    }
+    final controller = TextEditingController();
+    final ip = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enviar a una IP'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: 'IP del receptor',
+            hintText: 'ej. 192.168.1.50',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
+    if (ip == null || ip.isEmpty) return;
+
+    final target = Device(
+      alias: ip,
+      fingerprint: 'manual-$ip',
+      ip: ip,
+      port: 53318,
+      deviceType: DeviceType.desktop,
+    );
+    await _sendTo(target);
+  }
+
   Future<void> _sendTo(Device target) async {
     final file = _selectedFile;
     if (file == null) {
@@ -87,6 +130,15 @@ class _SendScreenState extends State<SendScreen> {
                       ? 'Seleccionar archivo'
                       : _selectedFile!.uri.pathSegments.last,
                   overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _sendProgress != null ? null : _sendToManualIp,
+                icon: const Icon(Icons.lan),
+                label: const Text('Enviar a una IP'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
                 ),
               ),
               if (_sendProgress != null) ...[

@@ -1,5 +1,6 @@
 // Prueba de integración del P2P: envía un archivo real por loopback y verifica
-// que el receptor lo guarda con el contenido correcto.
+// que el receptor lo guarda con el contenido correcto. Usa un puerto efímero
+// para no chocar con instancias reales de la app que estén corriendo.
 
 import 'dart:io';
 
@@ -16,10 +17,11 @@ void main() {
       alias: 'Receptor',
       fingerprint: 'recv',
       ip: '127.0.0.1',
-      port: ReceiveServer.port,
+      port: 0,
       deviceType: DeviceType.desktop,
     );
-    final server = ReceiveServer(receiverSelf, saveDirectoryOverride: tempDir)
+    final server = ReceiveServer(receiverSelf,
+        port: 0, saveDirectoryOverride: tempDir)
       ..onIncomingRequest = (_) async => true; // auto-acepta
     await server.start();
 
@@ -36,11 +38,11 @@ void main() {
       port: 0,
       deviceType: DeviceType.mobile,
     );
-    const target = Device(
+    final target = Device(
       alias: 'Receptor',
       fingerprint: 'recv',
       ip: '127.0.0.1',
-      port: ReceiveServer.port,
+      port: server.boundPort,
       deviceType: DeviceType.desktop,
     );
 
@@ -49,7 +51,6 @@ void main() {
 
     expect(result, SendResult.success);
 
-    // El archivo debe existir en la carpeta del receptor con el mismo contenido.
     final receivedFile = File('${tempDir.path}/saludo.txt');
     expect(await receivedFile.exists(), isTrue);
     expect(await receivedFile.readAsString(), content);
@@ -68,10 +69,11 @@ void main() {
       alias: 'Receptor',
       fingerprint: 'recv2',
       ip: '127.0.0.1',
-      port: ReceiveServer.port,
+      port: 0,
       deviceType: DeviceType.desktop,
     );
-    final server = ReceiveServer(receiverSelf, saveDirectoryOverride: tempDir)
+    final server = ReceiveServer(receiverSelf,
+        port: 0, saveDirectoryOverride: tempDir)
       ..onIncomingRequest = (_) async => false; // rechaza
     await server.start();
 
@@ -86,11 +88,11 @@ void main() {
       port: 0,
       deviceType: DeviceType.mobile,
     );
-    const target = Device(
+    final target = Device(
       alias: 'Receptor',
       fingerprint: 'recv2',
       ip: '127.0.0.1',
-      port: ReceiveServer.port,
+      port: server.boundPort,
       deviceType: DeviceType.desktop,
     );
 

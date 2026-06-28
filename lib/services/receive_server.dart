@@ -34,9 +34,12 @@ class ReceivedFile {
 ///   POST /api/prepare  {alias, fileName, fileSize}  -> {sessionId} | 403
 ///   POST /api/upload?session=..&name=..  (cuerpo = bytes) -> 200
 class ReceiveServer extends ChangeNotifier {
-  ReceiveServer(this.self, {this.saveDirectoryOverride});
+  ReceiveServer(this.self, {this.port = defaultPort, this.saveDirectoryOverride});
 
-  static const int port = 53318;
+  static const int defaultPort = 53318;
+
+  /// Puerto donde escucha (use 0 para uno efímero, p. ej. en pruebas).
+  final int port;
 
   final Device self;
 
@@ -44,6 +47,9 @@ class ReceiveServer extends ChangeNotifier {
   final Directory? saveDirectoryOverride;
 
   HttpServer? _server;
+
+  /// Puerto realmente asignado tras arrancar.
+  int get boundPort => _server?.port ?? port;
 
   /// Pregunta a la UI si se acepta una transferencia. Lo asigna la app.
   Future<bool> Function(IncomingRequest request)? onIncomingRequest;

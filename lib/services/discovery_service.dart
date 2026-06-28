@@ -82,11 +82,25 @@ class DiscoveryService extends ChangeNotifier {
     final socket = _socket;
     if (socket == null) return;
     final data = utf8.encode(jsonEncode(self.toAnnouncement()));
-    try {
-      socket.send(data, InternetAddress('255.255.255.255'), discoveryPort);
-    } on Object catch (e) {
-      debugPrint('Error al anunciar: $e');
+    for (final target in _broadcastTargets()) {
+      try {
+        socket.send(data, InternetAddress(target), discoveryPort);
+      } on Object catch (e) {
+        debugPrint('Error al anunciar a $target: $e');
+      }
     }
+  }
+
+  /// Direcciones a las que enviar el anuncio: broadcast global + broadcast
+  /// dirigido de la subred (más fiable en muchos routers).
+  List<String> _broadcastTargets() {
+    final targets = <String>{'255.255.255.255'};
+    final ip = self.ip;
+    final parts = ip.split('.');
+    if (parts.length == 4 && ip != '0.0.0.0') {
+      targets.add('${parts[0]}.${parts[1]}.${parts[2]}.255');
+    }
+    return targets.toList();
   }
 
   void _cleanup() {

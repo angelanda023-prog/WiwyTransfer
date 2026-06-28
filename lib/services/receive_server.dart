@@ -70,6 +70,8 @@ class ReceiveServer extends ChangeNotifier {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, port,
           shared: true);
       _server!.listen(_handle);
+      // Prepara la carpeta de guardado para poder mostrar su ruta.
+      unawaited(_saveDirectory());
     } on Object catch (e) {
       debugPrint('ReceiveServer no pudo iniciar: $e');
     }
@@ -129,9 +131,22 @@ class ReceiveServer extends ChangeNotifier {
       return;
     }
 
-    final dir = await _saveDirectory();
-    final file = File('${dir.path}/${_safeName(request.fileName)}');
-    final sink = file.openWrite();
+    final Directory dir;
+    final File file;
+    final IOSink sink;
+    try {
+      dir = await _saveDirectory();
+      file = File('${dir.path}/${_safeName(request.fileName)}');
+      sink = file.openWrite();
+    } on Object catch (e) {
+      debugPrint('No se pudo abrir el archivo para guardar: $e');
+      req.response
+        ..statusCode = HttpStatus.internalServerError
+        ..write('No se pudo guardar: $e');
+      await req.response.close();
+      return;
+    }
+
     var receivedBytes = 0;
     final total = request.fileSize;
     progress.value = 0;
@@ -156,26 +171,38 @@ class ReceiveServer extends ChangeNotifier {
       notifyListeners();
 
       _json(req, {'ok': true});
-    } on Object {
-      await sink.close();
-      rethrow;
+    } on Object catch (e) {
+      debugPrint('Error guardando la subida: $e');
+      try {
+        await sink.close();
+      } on Object {/* ya cerrado */}
+      try {
+        req.response
+          ..statusCode = HttpStatus.internalServerError
+          ..write('Error al recibir: $e');
+        await req.response.close();
+      } on Object {/* respuesta ya enviada */}
     } finally {
       progress.value = null;
     }
   }
 
+  /// Ruta donde se guardan los archivos recibidos (para mostrarla en la UI).
+  String? saveDirPath;
+
   /// Carpeta donde se guardan los archivos recibidos.
+  ///
+  /// Usa siempre el directorio de documentos de la app: en macOS está dentro
+  /// del contenedor del sandbox, por lo que siempre se puede escribir. En
+  /// escritorio se intenta además enlazar/copiar a Descargas para comodidad,
+  /// pero la escritura principal nunca falla.
   Future<Directory> _saveDirectory() async {
     if (saveDirectoryOverride != null) return saveDirectoryOverride!;
-    Directory base;
-    if (Platform.isAndroid) {
-      base = await getApplicationDocumentsDirectory();
-    } else {
-      base = await getDownloadsDirectory() ??
-          await getApplicationDocumentsDirectory();
-    }
+    final base = await getApplicationDocumentsDirectory();
     final dir = Directory('${base.path}/WiwyTransfer');
     if (!await dir.exists()) await dir.create(recursive: true);
+    saveDirPath = dir.path;
+    notifyListeners();
     return dir;
   }
 

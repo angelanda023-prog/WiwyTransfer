@@ -74,20 +74,34 @@ class ReceiveScreen extends StatelessWidget {
           listenable: services.receiver,
           builder: (context, _) {
             final files = services.receiver.received;
-            if (files.isEmpty) return const SizedBox.shrink();
+            final dirPath = services.receiver.saveDirPath;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('Recibidos', style: theme.textTheme.titleSmall),
-                ),
-                for (final f in files)
-                  ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.insert_drive_file)),
-                    title: Text(f.path.split('/').last),
-                    subtitle: Text('de ${f.from}'),
+                if (dirPath != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Los archivos se guardan en:\n$dirPath',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
+                if (files.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text('Recibidos', style: theme.textTheme.titleSmall),
+                  ),
+                  for (final f in files)
+                    ListTile(
+                      leading: const CircleAvatar(
+                          child: Icon(Icons.insert_drive_file)),
+                      title: Text(f.path.split('/').last),
+                      subtitle: Text('de ${f.from}'),
+                    ),
+                ],
               ],
             );
           },

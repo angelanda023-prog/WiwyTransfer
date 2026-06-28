@@ -83,20 +83,20 @@ class _SendScreenState extends State<SendScreen> {
       return;
     }
     setState(() => _sendProgress = 0);
-    final result = await AppServices.instance.sender.sendFile(
+    final outcome = await AppServices.instance.sender.sendFile(
       target,
       file,
       onProgress: (p) => setState(() => _sendProgress = p),
     );
     if (!mounted) return;
     setState(() => _sendProgress = null);
-    switch (result) {
+    switch (outcome.result) {
       case SendResult.success:
         _snack('Enviado a ${target.alias} ✅');
       case SendResult.rejected:
         _snack('${target.alias} rechazó la transferencia');
       case SendResult.error:
-        _snack('Error al enviar a ${target.alias}');
+        _snack('Error: ${outcome.message ?? 'desconocido'}');
     }
   }
 

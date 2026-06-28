@@ -47,9 +47,9 @@ void main() {
     );
 
     const sender = SendService(senderSelf);
-    final result = await sender.sendFile(target, srcFile);
+    final outcome = await sender.sendFile(target, srcFile);
 
-    expect(result, SendResult.success);
+    expect(outcome.result, SendResult.success);
 
     final receivedFile = File('${tempDir.path}/saludo.txt');
     expect(await receivedFile.exists(), isTrue);
@@ -96,8 +96,8 @@ void main() {
       deviceType: DeviceType.desktop,
     );
 
-    final result = await const SendService(senderSelf).sendFile(target, srcFile);
-    expect(result, SendResult.rejected);
+    final outcome = await const SendService(senderSelf).sendFile(target, srcFile);
+    expect(outcome.result, SendResult.rejected);
 
     server.dispose();
     await tempDir.delete(recursive: true);

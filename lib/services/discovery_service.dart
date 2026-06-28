@@ -44,12 +44,13 @@ class DiscoveryService extends ChangeNotifier {
       _socket!.broadcastEnabled = true;
       _socket!.listen(_onEvent);
 
-      // Anuncio inmediato y luego cada 3 segundos.
+      // Anuncio inmediato y luego cada 2 segundos.
       _announce();
       _announceTimer =
-          Timer.periodic(const Duration(seconds: 3), (_) => _announce());
+          Timer.periodic(const Duration(seconds: 2), (_) => _announce());
 
-      // Expira dispositivos que llevan >10 s sin anunciarse.
+      // Expira dispositivos que llevan >20 s sin anunciarse (tolerante a la
+      // pérdida de paquetes UDP para evitar parpadeo en la lista).
       _cleanupTimer =
           Timer.periodic(const Duration(seconds: 5), (_) => _cleanup());
     } on Object catch (e) {
@@ -77,6 +78,9 @@ class DiscoveryService extends ChangeNotifier {
       // Paquete no válido: se ignora.
     }
   }
+
+  /// Fuerza un anuncio inmediato (p. ej. al volver la app al primer plano).
+  void announceNow() => _announce();
 
   void _announce() {
     final socket = _socket;
@@ -108,7 +112,7 @@ class DiscoveryService extends ChangeNotifier {
     final before = _devices.length;
     _devices.removeWhere((_, d) =>
         d.lastSeen == null ||
-        now.difference(d.lastSeen!) > const Duration(seconds: 10));
+        now.difference(d.lastSeen!) > const Duration(seconds: 20));
     if (_devices.length != before) notifyListeners();
   }
 

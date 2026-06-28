@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/app_services.dart';
 import 'history_screen.dart';
 import 'receive_screen.dart';
 import 'send_screen.dart';
@@ -13,8 +14,28 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Al volver al primer plano, re-anuncia de inmediato para reaparecer.
+    if (state == AppLifecycleState.resumed) {
+      AppServices.instance.discovery.announceNow();
+    }
+  }
 
   static const _screens = [
     SendScreen(),

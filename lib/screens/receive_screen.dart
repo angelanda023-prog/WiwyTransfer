@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../services/app_services.dart';
 import '../widgets/wiwy_header.dart';
 
 class ReceiveScreen extends StatelessWidget {
@@ -9,6 +10,9 @@ class ReceiveScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final services = AppServices.instance;
+    final self = services.self;
+
     return ListView(
       children: [
         const WiwyHeader(
@@ -17,44 +21,78 @@ class ReceiveScreen extends StatelessWidget {
               'Tu dispositivo es visible en la red local. Otros pueden enviarte '
               'archivos directamente.',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Center(
-          child: Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  WiwyTheme.brand.withValues(alpha: 0.15),
-                  WiwyTheme.accent.withValues(alpha: 0.15),
-                ],
-              ),
-            ),
-            child: const Icon(
-              Icons.wifi_tethering,
-              size: 72,
-              color: WiwyTheme.brand,
-            ),
+          child: ValueListenableBuilder<double?>(
+            valueListenable: services.receiver.progress,
+            builder: (context, progress, _) {
+              return Container(
+                width: 160,
+                height: 160,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      WiwyTheme.brand.withValues(alpha: 0.15),
+                      WiwyTheme.accent.withValues(alpha: 0.15),
+                    ],
+                  ),
+                ),
+                child: progress == null
+                    ? const Icon(Icons.wifi_tethering,
+                        size: 72, color: WiwyTheme.brand)
+                    : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 56,
+                              height: 56,
+                              child: CircularProgressIndicator(value: progress),
+                            ),
+                            const SizedBox(height: 12),
+                            Text('${(progress * 100).toStringAsFixed(0)}%'),
+                          ],
+                        ),
+                      ),
+              );
+            },
           ),
         ),
         const SizedBox(height: 16),
+        Center(child: Text(self.alias, style: theme.textTheme.titleMedium)),
         Center(
           child: Text(
-            'Esperando archivos…',
-            style: theme.textTheme.titleMedium,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Center(
-          child: Text(
-            'Este dispositivo: WiwyTransfer',
+            '${self.ip}:${self.port}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 24),
+        ListenableBuilder(
+          listenable: services.receiver,
+          builder: (context, _) {
+            final files = services.receiver.received;
+            if (files.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text('Recibidos', style: theme.textTheme.titleSmall),
+                ),
+                for (final f in files)
+                  ListTile(
+                    leading: const CircleAvatar(child: Icon(Icons.insert_drive_file)),
+                    title: Text(f.path.split('/').last),
+                    subtitle: Text('de ${f.from}'),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Card(
@@ -67,8 +105,8 @@ class ReceiveScreen extends StatelessWidget {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Las transferencias en la misma red van cifradas y nunca '
-                      'pasan por la nube.',
+                      'Las transferencias en la misma red van directas entre '
+                      'dispositivos y nunca pasan por la nube.',
                     ),
                   ),
                 ],

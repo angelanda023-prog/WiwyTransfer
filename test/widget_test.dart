@@ -1,34 +1,51 @@
-// Pruebas básicas de WiwyTransfer.
+// Pruebas de WiwyTransfer (sin abrir sockets de red).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:wiwytransfer/main.dart';
+import 'package:wiwytransfer/models/device.dart';
+import 'package:wiwytransfer/widgets/wiwy_header.dart';
 
 void main() {
-  testWidgets('La app arranca y muestra la marca y navegación',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(const WiwyTransferApp());
-    await tester.pumpAndSettle();
+  group('Device', () {
+    test('serializa y deserializa un anuncio', () {
+      const device = Device(
+        alias: 'Mi Pixel',
+        fingerprint: 'abc123',
+        ip: '',
+        port: 53318,
+        deviceType: DeviceType.mobile,
+      );
 
-    // El nombre de la app aparece en la cabecera.
-    expect(find.text('WiwyTransfer'), findsWidgets);
+      final parsed =
+          Device.fromAnnouncement(device.toAnnouncement(), '192.168.1.50');
 
-    // La navegación inferior tiene sus cuatro secciones.
-    expect(find.text('Enviar'), findsWidgets);
-    expect(find.text('Recibir'), findsWidgets);
-    expect(find.text('Historial'), findsWidgets);
-    expect(find.text('Ajustes'), findsWidgets);
+      expect(parsed, isNotNull);
+      expect(parsed!.alias, 'Mi Pixel');
+      expect(parsed.fingerprint, 'abc123');
+      expect(parsed.ip, '192.168.1.50');
+      expect(parsed.port, 53318);
+      expect(parsed.deviceType, DeviceType.mobile);
+    });
+
+    test('ignora anuncios de otras apps', () {
+      final foreign = {
+        'alias': 'X',
+        'fingerprint': 'y',
+        'port': 1,
+        'deviceType': 'mobile',
+        'app': 'otra-app',
+      };
+      expect(Device.fromAnnouncement(foreign, '10.0.0.1'), isNull);
+    });
   });
 
-  testWidgets('Se puede navegar a la sección Recibir',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(const WiwyTransferApp());
-    await tester.pumpAndSettle();
+  testWidgets('WiwyHeader muestra la marca y el título', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: WiwyHeader(title: 'Enviar archivos')),
+    ));
 
-    await tester.tap(find.byIcon(Icons.download_outlined));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Esperando archivos…'), findsOneWidget);
+    expect(find.text('WiwyTransfer'), findsOneWidget);
+    expect(find.text('Enviar archivos'), findsOneWidget);
   });
 }

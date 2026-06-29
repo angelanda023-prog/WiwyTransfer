@@ -31,6 +31,14 @@ struct ContentView: View {
                 secondaryButton: .cancel(Text("Rechazar")) { req.respond(false) }
             )
         }
+        .alert(item: $model.qsIncoming) { req in
+            Alert(
+                title: Text("Quick Share"),
+                message: Text("\(req.sender) quiere enviarte \(req.fileCount) archivo(s) (\(formatBytes(req.totalBytes)))."),
+                primaryButton: .default(Text("Aceptar")) { model.respondQuickShare(id: req.id, accepted: true) },
+                secondaryButton: .cancel(Text("Rechazar")) { model.respondQuickShare(id: req.id, accepted: false) }
+            )
+        }
         .onChange(of: model.selectedFiles) { files in
             if !files.isEmpty { tab = 0 }
         }
@@ -212,11 +220,16 @@ struct ReceiveView: View {
 
                 GroupBox {
                     VStack(alignment: .leading, spacing: 4) {
-                        Label("Quick Share (interop, experimental)", systemImage: "dot.radiowaves.left.and.right")
+                        Label("Quick Share (interop)", systemImage: "dot.radiowaves.left.and.right")
                             .font(.caption)
                         Text(model.qsStatus).font(.callout)
-                        Text("Abre Compartir → Quick Share en tu Android (misma WiFi) y busca este Mac.")
-                            .font(.caption2).foregroundColor(.secondary)
+                        if model.qsReceiving {
+                            ProgressView(value: model.qsProgress)
+                            Text(model.qsProgressText).font(.caption2).foregroundColor(.secondary)
+                        } else {
+                            Text("Abre Compartir → Quick Share en tu Android (misma WiFi) y busca este Mac.")
+                                .font(.caption2).foregroundColor(.secondary)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }

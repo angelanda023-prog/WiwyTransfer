@@ -85,6 +85,21 @@ Apple Developer Program.
 
 ---
 
+## Quick Share nativo (interop, en desarrollo)
+
+La app de macOS también interopera con el **Quick Share nativo de Android** (sin app
+extra en el móvil), basándose en el protocolo de [NearDrop](https://github.com/grishka/NearDrop):
+
+- El Mac se anuncia por Bonjour (`_FC9F5ED42C8A._tcp`) y aparece en *Compartir → Quick Share* del Android.
+- Handshake **UKEY2** (ECDH P-256 + HKDF), canal **AES-256-CBC + HMAC-SHA256**.
+- La app **permanece en la barra de menús** para recibir aunque cierres la ventana;
+  aceptas cada transferencia desde una **notificación** (botón *Aceptar*).
+- Los archivos llegan a `~/Descargas/WiwyTransfer`.
+
+Estado: **recibir** implementado (Android → Mac). **Enviar** (Mac → Android) en progreso;
+funcionará con el móvil en su pantalla de *Recibir* (límite de macOS: no puede "despertar"
+por BLE a un móvil que no esté en modo recepción).
+
 ## Detalles técnicos
 
 - **Descubrimiento:** servicio Bonjour `_wiwytransfer._tcp` con TXT `name`/`os`/`v`.

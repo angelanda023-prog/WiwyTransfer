@@ -8,6 +8,13 @@ struct IncomingRequest: Identifiable {
     let respond: (Bool) -> Void
 }
 
+struct QSIncoming: Identifiable {
+    let id: String
+    let sender: String
+    let fileCount: Int
+    let totalBytes: Int64
+}
+
 enum SendState {
     case idle
     case sending(sent: Int64, total: Int64)
@@ -35,7 +42,13 @@ final class AppModel: ObservableObject {
     // Quick Share (interop con el nativo de Android)
     @Published var qsStatus = "Iniciando Quick Share…"
     @Published var qsDevices: [QSDevice] = []
+    @Published var qsIncoming: QSIncoming?
+    @Published var qsReceiving = false
+    @Published var qsProgress: Double = 0
+    @Published var qsProgressText = ""
     private let quickShare = QuickShareManager()
+    private let qsReceiver = QSReceiver()
+    private var qsConnections: [String: InboundNearbyConnection] = [:]
 
     private var server: TransferServer?
     private var discovery: Discovery?
@@ -53,7 +66,11 @@ final class AppModel: ObservableObject {
             ?? (Host.current().localizedName ?? "Mac")
     }
 
+    private var started = false
+
     func start() {
+        guard !started else { return }
+        started = true
         let server = TransferServer(
             askAccept: { [weak self] header, addr in
                 await self?.requestAccept(header: header, peerAddress: addr) ?? false
@@ -84,13 +101,75 @@ final class AppModel: ObservableObject {
         // Quick Share nativo
         quickShare.onStatus = { [weak self] s in Task { @MainActor in self?.qsStatus = s } }
         quickShare.onDevices = { [weak self] d in Task { @MainActor in self?.qsDevices = d } }
+        setupQuickShareReceive()
+        quickShare.start(deviceName: deviceName)
+    }
+
+    private func setupQuickShareReceive() {
+        // Notificaciones con acción Aceptar/Rechazar (recibir sin enfocar la ventana).
+        QSNotificationCenter.shared.setup()
+        QSNotificationCenter.shared.onResponse = { [weak self] id, accepted in
+            Task { @MainActor in self?.respondQuickShare(id: id, accepted: accepted) }
+        }
+
+        qsReceiver.onConsent = { [weak self] meta, device, conn in
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.qsConnections[conn.id] = conn
+                self.qsIncoming = QSIncoming(id: conn.id, sender: device.name,
+                                             fileCount: meta.files.count, totalBytes: meta.totalSize)
+                QSNotificationCenter.shared.postTransferRequest(
+                    id: conn.id, sender: device.name,
+                    fileCount: meta.files.count, totalBytes: meta.totalSize)
+            }
+        }
+        qsReceiver.onProgress = { [weak self] received, total, file in
+            Task { @MainActor in
+                self?.qsReceiving = true
+                self?.qsProgress = total > 0 ? Double(received) / Double(total) : 0
+                self?.qsProgressText = "\(file) · \(formatBytes(received)) / \(formatBytes(total))"
+            }
+        }
+        qsReceiver.onFinished = { [weak self] paths, device, id in
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.qsConnections.removeValue(forKey: id)
+                self.qsReceiving = false
+                self.qsProgress = 0
+                self.qsStatus = "Recibido de \(device.name): \(paths.count) archivo(s) en Descargas/WiwyTransfer."
+            }
+        }
+        qsReceiver.onTerminated = { [weak self] id, error in
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.qsConnections.removeValue(forKey: id)
+                self.qsReceiving = false
+                if let error = error {
+                    self.qsStatus = "Transferencia Quick Share interrumpida: \(error.localizedDescription)"
+                }
+            }
+        }
+
         quickShare.onIncoming = { [weak self] conn in
             Task { @MainActor in
-                self?.qsStatus = "Conexión entrante de Quick Share recibida — recepción en construcción (paso 2)."
+                guard let self = self else { conn.cancel(); return }
+                let id = UUID().uuidString
+                let inbound = InboundNearbyConnection(connection: conn, id: id,
+                                                      saveDirectory: self.saveDirectory)
+                inbound.delegate = self.qsReceiver
+                self.qsConnections[id] = inbound // retener desde el inicio
+                inbound.start()
             }
-            conn.cancel()
         }
-        quickShare.start(deviceName: deviceName)
+    }
+
+    func respondQuickShare(id: String, accepted: Bool) {
+        guard let conn = qsConnections[id] else { return }
+        conn.submitUserConsent(accepted: accepted)
+        qsConnections.removeValue(forKey: id)
+        qsIncoming = nil
+        QSNotificationCenter.shared.clear(id: id)
+        if accepted { qsReceiving = true }
     }
 
     private func requestAccept(header: TransferHeader, peerAddress: String) async -> Bool {

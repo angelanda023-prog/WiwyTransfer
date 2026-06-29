@@ -68,7 +68,7 @@ final class QuickShareManager {
         do {
             let listener = try NWListener(using: .tcp)
             listener.newConnectionHandler = { [weak self] conn in
-                conn.start(queue: .global(qos: .userInitiated))
+                // No arrancamos la conexión aquí: lo hace InboundNearbyConnection.start().
                 self?.onIncoming(conn)
             }
             listener.stateUpdateHandler = { [weak self] state in

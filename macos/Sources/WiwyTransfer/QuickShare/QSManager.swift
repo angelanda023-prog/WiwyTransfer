@@ -68,6 +68,7 @@ final class QuickShareManager {
         do {
             let listener = try NWListener(using: .tcp)
             listener.newConnectionHandler = { [weak self] conn in
+                print("QS: ⬇️ conexión TCP entrante de \(conn.endpoint)")
                 // No arrancamos la conexión aquí: lo hace InboundNearbyConnection.start().
                 self?.onIncoming(conn)
             }
@@ -76,6 +77,7 @@ final class QuickShareManager {
                 switch state {
                 case .ready:
                     if let port = listener.port?.rawValue {
+                        print("QS: 🟢 listener TCP escuchando en puerto \(port)")
                         DispatchQueue.main.async { self.publishService(port: Int(port)) }
                     }
                 case .failed(let err):

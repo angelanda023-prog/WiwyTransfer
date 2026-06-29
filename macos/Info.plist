@@ -31,6 +31,7 @@
     <key>NSBonjourServices</key>
     <array>
         <string>_wiwytransfer._tcp</string>
+        <string>_FC9F5ED42C8A._tcp</string>
     </array>
 </dict>
 </plist>

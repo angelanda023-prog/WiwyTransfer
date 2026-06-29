@@ -50,7 +50,12 @@ final class InboundNearbyConnection: NearbyConnection {
         }
     }
 
+    override func connectionReady() {
+        print("QS: 🤝 conexión lista, esperando frames del emisor")
+    }
+
     override internal func processReceivedFrame(frameData: Data) {
+        print("QS: 📦 frame recibido (\(frameData.count) bytes) en estado \(currentState)")
         do {
             switch currentState {
             case .initial:
@@ -168,6 +173,7 @@ final class InboundNearbyConnection: NearbyConnection {
         guard let deviceName = String(bytes: b[18..<(18 + deviceNameLength)], encoding: .utf8) else { throw NearbyError.protocolError("Nombre de dispositivo no es UTF-8 válido") }
         let rawDeviceType = Int(b[0] & 7) >> 1
         remoteDeviceInfo = RemoteDeviceInfo(name: deviceName, type: RemoteDeviceInfo.DeviceType.fromRawValue(value: rawDeviceType))
+        print("QS: 📱 ConnectionRequest de “\(deviceName)”")
         currentState = .receivedConnectionRequest
     }
 
@@ -232,6 +238,7 @@ final class InboundNearbyConnection: NearbyConnection {
         let clientKey = try Securemessage_GenericPublicKey(serializedData: clientFinish.publicKey)
 
         try finalizeKeyExchange(peerKey: clientKey)
+        print("QS: 🔐 UKEY2 completado (PIN \(pinCode ?? "?"))")
         currentState = .receivedUkeyClientFinish
     }
 
@@ -319,6 +326,7 @@ final class InboundNearbyConnection: NearbyConnection {
         receivedBytes = 0
         let metadata = TransferMetadata(files: transferredFiles.map { $0.value.meta }, id: id, pinCode: pinCode)
         let device = remoteDeviceInfo!
+        print("QS: 📨 Introduction: \(metadata.files.count) archivo(s) — pidiendo consentimiento/notificación")
         DispatchQueue.main.async {
             self.delegate?.obtainUserConsent(for: metadata, from: device, connection: self)
         }

@@ -62,6 +62,7 @@ final class AppModel: ObservableObject {
     }
 
     init() {
+        setvbuf(stdout, nil, _IONBF, 0) // logs sin buffer (visibles al redirigir a archivo)
         self.deviceName = UserDefaults.standard.string(forKey: "device_name")
             ?? (Host.current().localizedName ?? "Mac")
     }

@@ -132,8 +132,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _qsSend = MutableStateFlow<QsSendState>(QsSendState.Idle)
     val qsSend: StateFlow<QsSendState> = _qsSend
 
-    private val qsSaveDir =
-        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WiwyTransfer")
+    private val _qsStatus = MutableStateFlow("Iniciando Quick Share…")
+    val qsStatus: StateFlow<String> = _qsStatus
+
+    // Carpeta propia de la app (sin permisos; funciona en Chromecast/Google TV).
+    private val qsSaveDir = File(app.getExternalFilesDir(null) ?: app.filesDir, "WiwyTransfer")
 
     private val quickShare = QuickShareService(app, viewModelScope, qsSaveDir, object : InboundDelegate {
         override fun onConsent(connection: InboundNearbyConnection, sender: String, pin: String?, files: List<QsFileMeta>) {
@@ -155,8 +158,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         discovery.registerReceiver(_deviceName.value, osName(), port)
         discovery.startDiscovery()
         quickShare.onPeers = { peers -> _qsPeers.value = peers }
+        quickShare.onStatus = { s -> _qsStatus.value = s }
         quickShare.start(_deviceName.value)
     }
+
+    val receivedDir: File get() = qsSaveDir
 
     fun sendQs(peer: QsPeer) {
         val files = _selectedFiles.value

@@ -30,9 +30,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleShare(intent)
+        val isTv = packageManager.hasSystemFeature("android.software.leanback") ||
+            packageManager.hasSystemFeature("android.hardware.type.television")
         setContent {
             MaterialTheme(colorScheme = wiwyColorScheme()) {
-                AppScreen(vm)
+                if (isTv) TvAppScreen(vm) else AppScreen(vm)
             }
         }
     }
@@ -117,7 +119,7 @@ fun AppScreen(vm: AppViewModel) {
             when (tab) {
                 0 -> SendTab(vm, onBrowse = { showBrowser = true })
                 1 -> ReceiveTab(vm)
-                else -> ReceivedScreen()
+                else -> ReceivedScreen(vm.receivedDir)
             }
         }
     }

@@ -19,15 +19,24 @@ import java.io.File
 /** Explorador de archivos navegable con mando (D-pad) para elegir qué enviar. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FileBrowserScreen(onPick: (List<File>) -> Unit, onCancel: () -> Unit) {
+fun FileBrowserScreen(
+    title: String = "Elegir archivos",
+    exts: Set<String>? = null,
+    onPick: (List<File>) -> Unit,
+    onCancel: () -> Unit,
+) {
     var dir by remember { mutableStateOf(StorageBrowser.storageRoot()) }
     val selected = remember { mutableStateListOf<File>() }
-    val entries by remember(dir) { mutableStateOf(StorageBrowser.list(dir)) }
+    val entries by remember(dir) {
+        mutableStateOf(
+            StorageBrowser.list(dir).filter { it.isDir || exts == null || it.file.extension.lowercase() in exts }
+        )
+    }
     val root = remember { StorageBrowser.storageRoot().absolutePath }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Elegir archivos", style = MaterialTheme.typography.titleLarge,
+            Text(title, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f))
             Button(
                 onClick = { onPick(selected.toList()) },
@@ -92,17 +101,17 @@ private fun BrowserRow(entry: FileEntry, checked: Boolean, onClick: () -> Unit) 
 /** Pantalla de archivos recibidos: navegar y abrir. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReceivedScreen() {
+fun ReceivedScreen(dir: File) {
     val context = LocalContext.current
     var refresh by remember { mutableStateOf(0) }
-    val entries by remember(refresh) { mutableStateOf(StorageBrowser.list(StorageBrowser.receivedDir())) }
+    val entries by remember(refresh) { mutableStateOf(StorageBrowser.list(dir)) }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Recibidos", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             IconButton(onClick = { refresh++ }) { Icon(Icons.Default.Refresh, contentDescription = "Actualizar") }
         }
-        Text("Descargas/WiwyTransfer", style = MaterialTheme.typography.bodySmall,
+        Text("Carpeta WiwyTransfer", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
 

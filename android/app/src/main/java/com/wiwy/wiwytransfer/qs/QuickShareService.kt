@@ -39,6 +39,9 @@ class QuickShareService(
     /** Pares Quick Share descubiertos (para enviar). */
     var onPeers: (List<QsPeer>) -> Unit = {}
 
+    /** Estado del anuncio (para mostrar en pantalla). */
+    var onStatus: (String) -> Unit = {}
+
     fun start(displayName: String) {
         stop()
         this.displayName = displayName
@@ -125,9 +128,11 @@ class QuickShareService(
         val listener = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(s: NsdServiceInfo) {
                 Log.i("WiwyQS", "Anunciado en Quick Share: ${s.serviceName}")
+                onStatus("✅ Visible en Quick Share (puerto $port)")
             }
             override fun onRegistrationFailed(s: NsdServiceInfo, errorCode: Int) {
                 Log.e("WiwyQS", "Fallo al anunciar Quick Share: $errorCode")
+                onStatus("❌ Error al anunciar (código $errorCode)")
             }
             override fun onServiceUnregistered(s: NsdServiceInfo) {}
             override fun onUnregistrationFailed(s: NsdServiceInfo, errorCode: Int) {}

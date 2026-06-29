@@ -252,7 +252,21 @@ private fun TvReceive(vm: AppViewModel, onBack: () -> Unit) {
             else -> Text("Esperando… Comparte por Quick Share desde tu móvil hacia esta TV.",
                 color = Color(0xCCFFFFFF))
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
+        // Log de diagnóstico en pantalla
+        val logLines by com.wiwy.wiwytransfer.qs.QsDebug.lines.collectAsStateWithLifecycle()
+        if (logLines.isNotEmpty()) {
+            Text("Diagnóstico:", color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 220.dp)
+                    .background(Color(0x33000000), RoundedCornerShape(8.dp)).padding(8.dp)
+            ) {
+                logLines.takeLast(12).forEach {
+                    Text(it, color = Color(0xFFB3E5FC), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         Box(Modifier.weight(1f)) { ReceivedScreen(vm.receivedDir) }
     }
 }

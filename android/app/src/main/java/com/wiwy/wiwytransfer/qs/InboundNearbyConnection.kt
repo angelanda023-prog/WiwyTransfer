@@ -46,6 +46,7 @@ class InboundNearbyConnection(
     override fun connectionReady() { /* el cliente inicia */ }
 
     override fun onClosed() {
+        QsDebug.log("🔌 Conexión cerrada (estado $state, error=$lastError)")
         // borra archivos a medio recibir
         for (f in files.values) if (f.created) runCatching { f.out?.close(); if (state != State.DISCONNECTED) f.dest.delete() }
         delegate.onClosed(lastError)
@@ -197,6 +198,7 @@ class InboundNearbyConnection(
     fun submitConsent(accept: Boolean) {
         if (!accept) { rejectTransfer(SharingResponseStatus.REJECT); return }
         try {
+            QsDebug.log("✅ Aceptado. Abriendo ${files.size} archivo(s) en ${saveDir.absolutePath}")
             for (f in files.values) {
                 f.out = FileOutputStream(f.dest)
                 f.created = true
@@ -211,8 +213,11 @@ class InboundNearbyConnection(
                 .build()
             state = State.RECEIVING_FILES
             sendTransferSetupFrame(resp)
+            QsDebug.log("→ RESPONSE ACCEPT enviado, esperando archivos…")
         } catch (e: Exception) {
-            Log.w("WiwyQS", "Error aceptando: ${e.message}"); close()
+            QsDebug.log("❌ Error al aceptar: ${e.message}")
+            lastError = e.message
+            close()
         }
     }
 

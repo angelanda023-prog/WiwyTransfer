@@ -201,6 +201,7 @@ abstract class NearbyConnection(protected val socket: Socket) {
             val pt = offline.v1.payloadTransfer
             val header = pt.payloadHeader
             val chunk = pt.payloadChunk
+            QsDebug.log("🔒 payload type=${header.type} ${chunk.body.size()}b flags=${chunk.flags}")
             when (header.type) {
                 PayloadType.BYTES -> {
                     val id = header.id
@@ -221,7 +222,10 @@ abstract class NearbyConnection(protected val socket: Socket) {
                 else -> {}
             }
         } else if (offline.hasV1() && offline.v1.type == ConnFrameType.KEEP_ALIVE) {
+            QsDebug.log("💓 keep-alive")
             sendKeepAlive(true)
+        } else {
+            QsDebug.log("🔒 otro frame: v1.type=${if (offline.hasV1()) offline.v1.type.toString() else "?"}")
         }
     }
 

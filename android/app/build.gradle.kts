@@ -15,12 +15,25 @@ android {
         applicationId = "com.wiwy.wiwytransfer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20205
-        versionName = "2.2.5"
+        versionCode = 20206
+        versionName = "2.2.6"
+    }
+
+    signingConfigs {
+        create("wiwy") {
+            storeFile = file("../wiwy.keystore")
+            storePassword = "wiwytransfer"
+            keyAlias = "wiwy"
+            keyPassword = "wiwytransfer"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("wiwy")
+        }
         release {
+            signingConfig = signingConfigs.getByName("wiwy")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

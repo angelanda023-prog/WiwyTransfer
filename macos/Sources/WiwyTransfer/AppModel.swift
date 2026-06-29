@@ -32,6 +32,8 @@ enum ReceiveState {
 
 @MainActor
 final class AppModel: ObservableObject {
+    static let shared = AppModel()
+
     @Published var peers: [Peer] = []
     @Published var deviceName: String
     @Published var sendState: SendState = .idle
@@ -119,9 +121,14 @@ final class AppModel: ObservableObject {
                 self.qsConnections[conn.id] = conn
                 self.qsIncoming = QSIncoming(id: conn.id, sender: device.name,
                                              fileCount: meta.files.count, totalBytes: meta.totalSize)
-                QSNotificationCenter.shared.postTransferRequest(
-                    id: conn.id, sender: device.name,
-                    fileCount: meta.files.count, totalBytes: meta.totalSize)
+                let desc = Self.describeFiles(meta.files)
+                let title = "WiwyTransfer | PIN: \(meta.pinCode ?? "----")"
+                let subtitle = "\(desc) de \(device.name)"
+                // Ventana flotante propia con aspecto de notificación.
+                QSApprovalPanel.shared.show(
+                    title: title, subtitle: subtitle,
+                    onAccept: { [weak self] in self?.respondQuickShare(id: conn.id, accepted: true) },
+                    onReject: { [weak self] in self?.respondQuickShare(id: conn.id, accepted: false) })
             }
         }
         qsReceiver.onProgress = { [weak self] received, total, file in
@@ -164,11 +171,23 @@ final class AppModel: ObservableObject {
         }
     }
 
+    static func describeFiles(_ files: [FileMetadata]) -> String {
+        if files.count == 1 {
+            let f = files[0]
+            if f.mimeType.hasPrefix("image/") { return "Imagen" }
+            if f.mimeType.hasPrefix("video/") { return "Vídeo" }
+            if f.mimeType.hasPrefix("audio/") { return "Audio" }
+            return f.name
+        }
+        return "\(files.count) archivos"
+    }
+
     func respondQuickShare(id: String, accepted: Bool) {
         guard let conn = qsConnections[id] else { return }
         conn.submitUserConsent(accepted: accepted)
         qsConnections.removeValue(forKey: id)
         qsIncoming = nil
+        QSApprovalPanel.shared.close()
         QSNotificationCenter.shared.clear(id: id)
         if accepted { qsReceiving = true }
     }

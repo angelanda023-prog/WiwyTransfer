@@ -34,11 +34,16 @@ final class QSNotificationCenter: NSObject, UNUserNotificationCenterDelegate {
     private var available: Bool { Bundle.main.bundleIdentifier != nil }
 
     func setup() {
-        guard available else { return } // sin bundle (p. ej. `swift run`) no hay notificaciones
+        guard available else { print("QS-notif: sin bundle, notificaciones desactivadas"); return }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        let accept = UNNotificationAction(identifier: "QS_ACCEPT", title: "Aceptar", options: [.foreground])
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            print("QS-notif: requestAuthorization granted=\(granted) error=\(String(describing: error))")
+        }
+        center.getNotificationSettings { settings in
+            print("QS-notif: authorizationStatus=\(settings.authorizationStatus.rawValue) alertSetting=\(settings.alertSetting.rawValue)")
+        }
+        let accept = UNNotificationAction(identifier: "QS_ACCEPT", title: "Aceptar", options: [])
         let decline = UNNotificationAction(identifier: "QS_DECLINE", title: "Rechazar", options: [.destructive])
         let category = UNNotificationCategory(identifier: categoryID, actions: [accept, decline],
                                               intentIdentifiers: [], options: [])
@@ -54,7 +59,10 @@ final class QSNotificationCenter: NSObject, UNUserNotificationCenterDelegate {
         content.userInfo = ["connId": id]
         content.sound = .default
         let req = UNNotificationRequest(identifier: "qs-\(id)", content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(req)
+        print("QS-notif: emitiendo notificación para \(sender)")
+        UNUserNotificationCenter.current().add(req) { error in
+            print("QS-notif: add() error=\(String(describing: error))")
+        }
     }
 
     func clear(id: String) {

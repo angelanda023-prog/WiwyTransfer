@@ -26,6 +26,8 @@
     <string>NSApplication</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
+    <key>LSUIElement</key>
+    <true/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>WiwyTransfer usa la red WiFi local para descubrir dispositivos y transferir archivos.</string>
     <key>NSBonjourServices</key>

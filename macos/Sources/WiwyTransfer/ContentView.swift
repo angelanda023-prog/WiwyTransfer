@@ -326,6 +326,7 @@ struct PeerRow: View {
 struct SettingsPane: View {
     @EnvironmentObject var model: AppModel
     @State private var name = ""
+    @State private var launchAtLogin = LoginItem.isEnabled
 
     var body: some View {
         Form {
@@ -333,13 +334,26 @@ struct SettingsPane: View {
                 TextField("Nombre visible para otros", text: $name)
                 Button("Guardar") { model.setDeviceName(name) }
             }
+            Section("Inicio") {
+                Toggle("Abrir al iniciar sesión (siempre disponible)", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { newValue in
+                        if !LoginItem.setEnabled(newValue) {
+                            launchAtLogin = LoginItem.isEnabled // revertir si falló
+                        }
+                    }
+                Text("WiwyTransfer arrancará en segundo plano (barra de menús) al encender el Mac.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
             Section("Recepción") {
                 LabeledContent("Carpeta", value: "Descargas/WiwyTransfer")
                 Button("Abrir carpeta de descargas") { NSWorkspace.shared.open(model.saveDirectory) }
             }
         }
         .formStyle(.grouped)
-        .onAppear { name = model.deviceName }
+        .onAppear {
+            name = model.deviceName
+            launchAtLogin = LoginItem.isEnabled
+        }
         .navigationTitle("Configuraciones")
     }
 }

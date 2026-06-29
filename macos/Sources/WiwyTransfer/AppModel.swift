@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Network
 
 struct IncomingRequest: Identifiable {
     let id = UUID()
@@ -48,9 +49,14 @@ final class AppModel: ObservableObject {
     @Published var qsReceiving = false
     @Published var qsProgress: Double = 0
     @Published var qsProgressText = ""
+    @Published var qsSending = false
+    @Published var qsSendStatus = ""
+    @Published var qsSendProgress: Double = 0
     private let quickShare = QuickShareManager()
     private let qsReceiver = QSReceiver()
+    private let qsSender = QSSender()
     private var qsConnections: [String: InboundNearbyConnection] = [:]
+    private var qsOutbound: OutboundNearbyConnection?
 
     private var server: TransferServer?
     private var discovery: Discovery?
@@ -169,6 +175,47 @@ final class AppModel: ObservableObject {
                 inbound.start()
             }
         }
+
+        // Envío (Mac -> Android por Quick Share)
+        qsSender.onEstablished = { [weak self] in
+            Task { @MainActor in self?.qsSendStatus = "Conectado, esperando aceptación en el móvil…" }
+        }
+        qsSender.onAccepted = { [weak self] in
+            Task { @MainActor in self?.qsSendStatus = "Aceptado, enviando…" }
+        }
+        qsSender.onProgress = { [weak self] p in
+            Task { @MainActor in self?.qsSendProgress = p }
+        }
+        qsSender.onFinished = { [weak self] in
+            Task { @MainActor in
+                self?.qsSending = false
+                self?.qsSendProgress = 1
+                self?.qsSendStatus = "Enviado ✅"
+                self?.qsOutbound = nil
+            }
+        }
+        qsSender.onFailed = { [weak self] error in
+            Task { @MainActor in
+                self?.qsSending = false
+                self?.qsSendStatus = "Error: \(error.localizedDescription)"
+                self?.qsOutbound = nil
+            }
+        }
+    }
+
+    func sendQuickShare(to device: QSDevice) {
+        guard !selectedFiles.isEmpty, !qsSending else { return }
+        qsSending = true
+        qsSendProgress = 0
+        qsSendStatus = "Conectando con \(device.name)…"
+        let conn = NWConnection(to: device.endpoint, using: .tcp)
+        let outbound = OutboundNearbyConnection(
+            connection: conn, id: UUID().uuidString,
+            urlsToSend: selectedFiles, senderName: deviceName,
+            senderEndpointID: quickShare.endpointID)
+        outbound.delegate = qsSender
+        qsOutbound = outbound
+        outbound.start()
     }
 
     static func describeFiles(_ files: [FileMetadata]) -> String {

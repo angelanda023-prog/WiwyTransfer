@@ -185,20 +185,44 @@ struct SendView: View {
                     ForEach(model.peers) { PeerRow(peer: $0) }
                 }
 
-                if !model.qsDevices.isEmpty {
-                    Divider()
+                Divider()
+                HStack {
                     Text("Quick Share cercanos").font(.headline)
+                    Spacer()
+                }
+                Text("El móvil debe tener abierta su pantalla de “Recibir” de Quick Share.")
+                    .font(.caption).foregroundColor(.secondary)
+
+                if model.qsSending || !model.qsSendStatus.isEmpty {
+                    GroupBox {
+                        VStack(alignment: .leading) {
+                            Text(model.qsSendStatus).font(.callout)
+                            if model.qsSending { ProgressView(value: model.qsSendProgress) }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                if model.qsDevices.isEmpty {
+                    Text("Buscando dispositivos Quick Share…")
+                        .font(.callout).foregroundColor(.secondary)
+                } else {
                     ForEach(model.qsDevices) { dev in
-                        HStack {
-                            Image(systemName: dev.type == .phone ? "iphone" : "questionmark.circle")
-                            VStack(alignment: .leading) {
-                                Text(dev.name)
-                                Text("Quick Share").font(.caption).foregroundColor(.secondary)
+                        Button { model.sendQuickShare(to: dev) } label: {
+                            HStack {
+                                Image(systemName: dev.type == .phone ? "iphone" : "questionmark.circle")
+                                VStack(alignment: .leading) {
+                                    Text(dev.name)
+                                    Text("Quick Share").font(.caption).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "paperplane.fill")
+                                    .foregroundColor((!model.selectedFiles.isEmpty && !model.qsSending) ? .accentColor : .secondary)
                             }
-                            Spacer()
-                            Text("envío en paso 3").font(.caption2).foregroundColor(.secondary)
+                            .contentShape(Rectangle())
+                            .padding(.vertical, 6)
                         }
-                        .padding(.vertical, 4)
+                        .buttonStyle(.plain)
+                        .disabled(model.selectedFiles.isEmpty || model.qsSending)
                     }
                 }
             }

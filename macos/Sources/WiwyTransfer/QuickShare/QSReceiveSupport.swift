@@ -3,11 +3,24 @@ import Foundation
 // Tipos de apoyo para el receptor Quick Share, portados/adaptados de NearDrop
 // (The Unlicense, dominio público): https://github.com/grishka/NearDrop
 
-enum NearbyError: Error {
+enum NearbyError: Error, LocalizedError {
     case protocolError(_ message: String)
     case requiredFieldMissing(_ message: String)
     case ukey2
     case inputInvalid(_ message: String)
+    case canceled(reason: String)
+    case inputOutput
+
+    var errorDescription: String? {
+        switch self {
+        case .protocolError(let m): return m
+        case .requiredFieldMissing(let m): return "Falta un campo: \(m)"
+        case .ukey2: return "Fallo en el handshake UKEY2"
+        case .inputInvalid(let m): return m
+        case .canceled(let reason): return reason
+        case .inputOutput: return "Error de lectura/escritura"
+        }
+    }
 }
 
 public struct RemoteDeviceInfo {

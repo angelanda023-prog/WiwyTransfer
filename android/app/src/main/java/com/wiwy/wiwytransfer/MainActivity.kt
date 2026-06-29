@@ -119,7 +119,7 @@ fun AppScreen(vm: AppViewModel) {
             when (tab) {
                 0 -> SendTab(vm, onBrowse = { showBrowser = true })
                 1 -> ReceiveTab(vm)
-                else -> ReceivedScreen(vm.receivedDir)
+                else -> ReceivedScreen()
             }
         }
     }

@@ -1,8 +1,8 @@
 package com.wiwy.wiwytransfer.qs
 
 import android.util.Log
-import java.io.File
-import java.io.FileOutputStream
+import com.wiwy.wiwytransfer.net.IncomingSaver
+import com.wiwy.wiwytransfer.net.SaveTarget
 import java.net.Socket
 
 /** Metadatos de un archivo entrante por Quick Share. */
@@ -19,7 +19,7 @@ interface InboundDelegate {
 /** Receptor Quick Share (rol servidor del UKEY2). Port de InboundNearbyConnection.swift. */
 class InboundNearbyConnection(
     socket: Socket,
-    private val saveDir: File,
+    private val saver: IncomingSaver,
     private val delegate: InboundDelegate,
 ) : NearbyConnection(socket) {
 
@@ -30,8 +30,8 @@ class InboundNearbyConnection(
     }
 
     private class FileState(
-        val meta: QsFileMeta, val dest: File,
-        var out: FileOutputStream? = null, var bytes: Long = 0, var created: Boolean = false,
+        val meta: QsFileMeta,
+        var target: SaveTarget? = null, var bytes: Long = 0,
     )
 
     private var state = State.INITIAL
@@ -47,8 +47,8 @@ class InboundNearbyConnection(
 
     override fun onClosed() {
         QsDebug.log("🔌 Conexión cerrada (estado $state, error=$lastError)")
-        // borra archivos a medio recibir
-        for (f in files.values) if (f.created) runCatching { f.out?.close(); if (state != State.DISCONNECTED) f.dest.delete() }
+        // finaliza/borra archivos a medio recibir
+        for (f in files.values) f.target?.let { runCatching { it.onDone(false) } }
         delegate.onClosed(lastError)
     }
 
@@ -183,11 +183,9 @@ class InboundNearbyConnection(
     private fun processIntroduction(frame: SharingFrame) {
         val intro = frame.v1.introduction
         if (intro.fileMetadataCount == 0) { rejectTransfer(SharingResponseStatus.UNSUPPORTED_ATTACHMENT_TYPE); return }
-        saveDir.mkdirs()
         for (fm in intro.fileMetadataList) {
             val name = sanitize(fm.name)
-            val dest = uniqueFile(saveDir, name)
-            files[fm.payloadId] = FileState(QsFileMeta(name, fm.size, fm.mimeType), dest)
+            files[fm.payloadId] = FileState(QsFileMeta(name, fm.size, fm.mimeType))
             totalBytes += fm.size
         }
         state = State.WAITING_FOR_CONSENT
@@ -198,10 +196,9 @@ class InboundNearbyConnection(
     fun submitConsent(accept: Boolean) {
         if (!accept) { rejectTransfer(SharingResponseStatus.REJECT); return }
         try {
-            QsDebug.log("✅ Aceptado. Abriendo ${files.size} archivo(s) en ${saveDir.absolutePath}")
+            QsDebug.log("✅ Aceptado. Guardando ${files.size} archivo(s) en Descargas/WiwyTransfer")
             for (f in files.values) {
-                f.out = FileOutputStream(f.dest)
-                f.created = true
+                f.target = saver.create(f.meta.name)
             }
             val resp = SharingFrame.newBuilder()
                 .setVersion(SharingVersion.V1)
@@ -227,14 +224,14 @@ class InboundNearbyConnection(
         val chunk = frame.payloadChunk
         if (!chunk.body.isEmpty) {
             val b = chunk.body.toByteArray()
-            f.out?.write(b)
+            f.target?.output?.write(b)
             f.bytes += b.size
             receivedBytes += b.size
             delegate.onProgress(receivedBytes, totalBytes, f.meta.name)
         } else if ((chunk.flags.toInt() and 1) == 1) {
-            runCatching { f.out?.close() }
-            f.out = null
-            savedPaths.add(f.dest.absolutePath)
+            val path = f.target?.onDone(true) ?: f.meta.name
+            f.target = null
+            savedPaths.add(path)
             files.remove(id)
             if (files.isEmpty()) {
                 state = State.DISCONNECTED
@@ -259,16 +256,5 @@ class InboundNearbyConnection(
     private fun sanitize(raw: String): String {
         val base = raw.substringAfterLast('/').substringAfterLast('\\').trim()
         return if (base.isEmpty() || base == "." || base == "..") "archivo" else base
-    }
-
-    private fun uniqueFile(dir: File, name: String): File {
-        var dest = File(dir, name)
-        if (!dest.exists()) return dest
-        val dot = name.lastIndexOf('.')
-        val base = if (dot > 0) name.substring(0, dot) else name
-        val ext = if (dot > 0) name.substring(dot) else ""
-        var i = 1
-        while (dest.exists()) { dest = File(dir, "$base ($i)$ext"); i++ }
-        return dest
     }
 }

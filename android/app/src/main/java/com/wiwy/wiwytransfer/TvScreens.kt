@@ -101,17 +101,19 @@ private fun BrowserRow(entry: FileEntry, checked: Boolean, onClick: () -> Unit) 
 /** Pantalla de archivos recibidos: navegar y abrir. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReceivedScreen(dir: File, refreshKey: Any = Unit) {
+fun ReceivedScreen(refreshKey: Any = Unit) {
     val context = LocalContext.current
     var refresh by remember { mutableStateOf(0) }
-    val entries by remember(refresh, refreshKey) { mutableStateOf(StorageBrowser.list(dir)) }
+    val entries by remember(refresh, refreshKey) {
+        mutableStateOf(com.wiwy.wiwytransfer.storage.MediaRepo.received(context))
+    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Recibidos", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             IconButton(onClick = { refresh++ }) { Icon(Icons.Default.Refresh, contentDescription = "Actualizar") }
         }
-        Text("Carpeta WiwyTransfer", style = MaterialTheme.typography.bodySmall,
+        Text("Descargas/WiwyTransfer", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
 
@@ -119,8 +121,16 @@ fun ReceivedScreen(dir: File, refreshKey: Any = Unit) {
             Text("Aún no has recibido archivos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(entries, key = { it.file.absolutePath }) { entry ->
-                    Card(onClick = { StorageBrowser.openFile(context, entry.file) }, modifier = Modifier.fillMaxWidth()) {
+                items(entries, key = { it.uri.toString() }) { entry ->
+                    Card(
+                        onClick = {
+                            val i = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                .setDataAndType(entry.uri, entry.mime)
+                                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            runCatching { context.startActivity(i) }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.InsertDriveFile, contentDescription = null)
                             Spacer(Modifier.width(12.dp))

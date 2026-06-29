@@ -108,9 +108,15 @@ struct MenuBarView: View {
         if model.qsReceiving { Text(model.qsProgressText) }
         Divider()
 
-        Button("Abrir ventana…") {
-            MainWindowController.shared.show()
+        Button("Configuración…") {
+            MainWindowController.shared.show(initialTab: .settings)
         }
+        Button("Abrir carpeta de descargas") {
+            let dir = AppModel.shared.saveDirectory
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(dir)
+        }
+        Divider()
         Button("Salir") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }

@@ -7,7 +7,6 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -23,7 +22,7 @@ data class QsPeer(val id: String, val name: String, val host: InetAddress, val p
 class QuickShareService(
     context: Context,
     private val scope: CoroutineScope,
-    private val saveDir: File,
+    private val saver: com.wiwy.wiwytransfer.net.IncomingSaver,
     private val delegate: InboundDelegate,
 ) {
     private val nsd = context.getSystemService(Context.NSD_SERVICE) as NsdManager
@@ -58,7 +57,7 @@ class QuickShareService(
                     break
                 }
                 Log.i("WiwyQS", "Conexión entrante de ${socket.inetAddress?.hostAddress}")
-                val conn = InboundNearbyConnection(socket, saveDir, delegate)
+                val conn = InboundNearbyConnection(socket, saver, delegate)
                 scope.launch(Dispatchers.IO) { conn.loop() }
             }
         }

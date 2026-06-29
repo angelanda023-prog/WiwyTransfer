@@ -3,8 +3,6 @@ package com.wiwy.wiwytransfer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,9 +13,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wiwy.wiwytransfer.storage.MediaRepo
 import com.wiwy.wiwytransfer.storage.StorageBrowser
 
 private val BgTop = Color(0xFF0A2A4A)
@@ -26,16 +26,16 @@ private val TileBg = Color(0x33FFFFFF)
 private val TileFocus = Color(0xFF0D47A1)
 
 private object Exts {
-    val VIDEO = setOf("mp4", "mkv", "avi", "mov", "webm", "3gp", "ts", "m4v")
-    val IMAGE = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "heic")
-    val MUSIC = setOf("mp3", "wav", "flac", "aac", "m4a", "ogg", "opus")
     val DOC = setOf("pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "pptx", "zip", "rar")
     val APK = setOf("apk")
 }
 
+enum class MediaKind { IMAGES, VIDEOS, AUDIO, RECEIVED }
+
 private sealed interface TvNav {
     data object Home : TvNav
     data class Browse(val title: String, val exts: Set<String>?) : TvNav
+    data class Media(val title: String, val kind: MediaKind) : TvNav
     data object Receive : TvNav
     data object Devices : TvNav
 }
@@ -45,6 +45,7 @@ fun TvAppScreen(vm: AppViewModel) {
     var nav by remember { mutableStateOf<TvNav>(TvNav.Home) }
     val incoming by vm.incoming.collectAsStateWithLifecycle()
     val qsIncoming by vm.qsIncoming.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     Box(Modifier.fillMaxSize().background(BgMain)) {
         when (val n = nav) {
@@ -52,7 +53,8 @@ fun TvAppScreen(vm: AppViewModel) {
                 vm = vm,
                 onSend = { nav = TvNav.Browse("Enviar", null) },
                 onReceive = { nav = TvNav.Receive },
-                onCategory = { title, exts -> nav = TvNav.Browse(title, exts) },
+                onBrowse = { title, exts -> nav = TvNav.Browse(title, exts) },
+                onMedia = { title, kind -> nav = TvNav.Media(title, kind) },
             )
             is TvNav.Browse -> FileBrowserScreen(
                 title = n.title, exts = n.exts,
@@ -62,7 +64,25 @@ fun TvAppScreen(vm: AppViewModel) {
                 },
                 onCancel = { nav = TvNav.Home },
             )
-            TvNav.Receive -> TvReceive(vm) { nav = TvNav.Home }
+            is TvNav.Media -> {
+                val entries = remember(n) {
+                    when (n.kind) {
+                        MediaKind.IMAGES -> MediaRepo.images(context)
+                        MediaKind.VIDEOS -> MediaRepo.videos(context)
+                        MediaKind.AUDIO -> MediaRepo.audio(context)
+                        MediaKind.RECEIVED -> MediaRepo.received(context)
+                    }
+                }
+                MediaListScreen(
+                    title = n.title, entries = entries,
+                    onSend = { e ->
+                        vm.setSelectedFiles(listOf(MediaRepo.toOutgoing(context, e)))
+                        nav = TvNav.Devices
+                    },
+                    onBack = { nav = TvNav.Home },
+                )
+            }
+            TvNav.Receive -> TvReceive(vm, onViewReceived = { nav = TvNav.Media("Recibidos", MediaKind.RECEIVED) }) { nav = TvNav.Home }
             TvNav.Devices -> TvDevices(vm) { nav = TvNav.Home }
         }
     }
@@ -92,12 +112,12 @@ private fun TvHome(
     vm: AppViewModel,
     onSend: () -> Unit,
     onReceive: () -> Unit,
-    onCategory: (String, Set<String>?) -> Unit,
+    onBrowse: (String, Set<String>?) -> Unit,
+    onMedia: (String, MediaKind) -> Unit,
 ) {
     val qsStatus by vm.qsStatus.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize()) {
-        // Barra superior
         Row(
             Modifier.fillMaxWidth().background(BgTop).padding(horizontal = 28.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -112,50 +132,68 @@ private fun TvHome(
 
         Spacer(Modifier.height(28.dp))
 
-        // Send / Receive grandes
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            Tile("Enviar", Icons.Default.Upload, big = true, onClick = onSend)
+            BigTile("Enviar", Icons.Default.Upload, onClick = onSend)
             Spacer(Modifier.width(40.dp))
-            Tile("Recibir", Icons.Default.Download, big = true, onClick = onReceive)
+            BigTile("Recibir", Icons.Default.Download, onClick = onReceive)
         }
 
         Spacer(Modifier.height(36.dp))
 
-        // Categorías
+        // Fila de categorías responsive: ocupa todo el ancho
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Tile("Mis archivos", Icons.Default.Folder) { onCategory("Mis archivos", null) }
-            Tile("Vídeos", Icons.Default.Movie) { onCategory("Vídeos", Exts.VIDEO) }
-            Tile("Imágenes", Icons.Default.Image) { onCategory("Imágenes", Exts.IMAGE) }
-            Tile("Música", Icons.Default.MusicNote) { onCategory("Música", Exts.MUSIC) }
-            Tile("APKs", Icons.Default.Android) { onCategory("APKs", Exts.APK) }
-            Tile("Documentos", Icons.Default.Description) { onCategory("Documentos", Exts.DOC) }
+            CatTile(Modifier.weight(1f), "Mis archivos", Icons.Default.Folder) { onBrowse("Mis archivos", null) }
+            CatTile(Modifier.weight(1f), "Vídeos", Icons.Default.Movie) { onMedia("Vídeos", MediaKind.VIDEOS) }
+            CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image) { onMedia("Imágenes", MediaKind.IMAGES) }
+            CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote) { onMedia("Música", MediaKind.AUDIO) }
+            CatTile(Modifier.weight(1f), "APKs", Icons.Default.Android) { onBrowse("APKs", Exts.APK) }
+            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description) { onBrowse("Documentos", Exts.DOC) }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Tile(label: String, icon: ImageVector, big: Boolean = false, onClick: () -> Unit) {
+private fun BigTile(label: String, icon: ImageVector, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val side = if (big) 130.dp else 100.dp
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             onClick = onClick,
-            modifier = Modifier.size(side).onFocusChanged { focused = it.isFocused },
+            modifier = Modifier.size(130.dp).onFocusChanged { focused = it.isFocused },
             shape = RoundedCornerShape(14.dp),
             color = if (focused) TileFocus else TileBg,
             border = if (focused) BorderStroke(3.dp, Color.White) else null,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = label, tint = Color.White,
-                    modifier = Modifier.size(if (big) 56.dp else 38.dp))
+                Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(56.dp))
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text(label, color = Color.White, fontWeight = if (big) FontWeight.Bold else FontWeight.Normal)
+        Text(label, color = Color.White, fontWeight = FontWeight.Bold)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CatTile(modifier: Modifier, label: String, icon: ImageVector, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().height(90.dp).onFocusChanged { focused = it.isFocused },
+            shape = RoundedCornerShape(12.dp),
+            color = if (focused) TileFocus else TileBg,
+            border = if (focused) BorderStroke(3.dp, Color.White) else null,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(34.dp))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 1)
     }
 }
 
@@ -193,12 +231,8 @@ private fun TvDevices(vm: AppViewModel, onBack: () -> Unit) {
         if (qsPeers.isEmpty() && peers.isEmpty()) {
             Text("Buscando dispositivos…", color = Color(0xCCFFFFFF))
         }
-        qsPeers.forEach { p ->
-            DeviceRow(p.name, "Quick Share") { vm.sendQs(p) }
-        }
-        peers.forEach { p ->
-            DeviceRow(p.displayName, "WiwyTransfer") { vm.sendTo(p) }
-        }
+        qsPeers.forEach { p -> DeviceRow(p.name, "Quick Share") { vm.sendQs(p) } }
+        peers.forEach { p -> DeviceRow(p.displayName, "WiwyTransfer") { vm.sendTo(p) } }
     }
 }
 
@@ -226,7 +260,7 @@ private fun DeviceRow(name: String, kind: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TvReceive(vm: AppViewModel, onBack: () -> Unit) {
+private fun TvReceive(vm: AppViewModel, onViewReceived: () -> Unit, onBack: () -> Unit) {
     val name by vm.deviceName.collectAsStateWithLifecycle()
     val qsStatus by vm.qsStatus.collectAsStateWithLifecycle()
     val qsReceive by vm.qsReceive.collectAsStateWithLifecycle()
@@ -235,6 +269,8 @@ private fun TvReceive(vm: AppViewModel, onBack: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Recibir", color = Color.White, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f))
+            Button(onClick = onViewReceived) { Text("Ver recibidos") }
+            Spacer(Modifier.width(8.dp))
             TextButton(onClick = onBack) { Text("Volver", color = Color.White) }
         }
         Spacer(Modifier.height(8.dp))
@@ -247,13 +283,11 @@ private fun TvReceive(vm: AppViewModel, onBack: () -> Unit) {
                 Text("Recibiendo ${s.name}…", color = Color.White)
                 LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
             }
-            is QsReceiveState.Done -> Text("✅ Recibido (${s.paths.size}) de ${s.sender}", color = Color.White)
+            is QsReceiveState.Done -> Text("✅ Recibido (${s.paths.size}) de ${s.sender} — pulsa “Ver recibidos”", color = Color.White)
             is QsReceiveState.Error -> Text("❌ ${s.message}", color = Color(0xFFFFCDD2))
-            else -> Text("Esperando… Comparte por Quick Share desde tu móvil hacia esta TV.",
-                color = Color(0xCCFFFFFF))
+            else -> Text("Esperando… Comparte por Quick Share desde tu móvil hacia esta TV.", color = Color(0xCCFFFFFF))
         }
         Spacer(Modifier.height(12.dp))
-        // Log de diagnóstico en pantalla
         val logLines by com.wiwy.wiwytransfer.qs.QsDebug.lines.collectAsStateWithLifecycle()
         if (logLines.isNotEmpty()) {
             Text("Diagnóstico:", color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
@@ -265,8 +299,6 @@ private fun TvReceive(vm: AppViewModel, onBack: () -> Unit) {
                     Text(it, color = Color(0xFFB3E5FC), style = MaterialTheme.typography.bodySmall, maxLines = 1)
                 }
             }
-            Spacer(Modifier.height(8.dp))
         }
-        Box(Modifier.weight(1f)) { ReceivedScreen(vm.receivedDir, refreshKey = qsReceive) }
     }
 }

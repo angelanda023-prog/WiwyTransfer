@@ -15,8 +15,8 @@ android {
         applicationId = "com.wiwy.wiwytransfer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20208
-        versionName = "2.2.8"
+        versionCode = 20300
+        versionName = "2.3.0"
     }
 
     signingConfigs {
@@ -88,4 +88,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     implementation("com.google.protobuf:protobuf-javalite:3.25.5")
+
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
 }

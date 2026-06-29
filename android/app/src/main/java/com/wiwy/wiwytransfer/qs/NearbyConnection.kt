@@ -44,9 +44,11 @@ abstract class NearbyConnection(protected val socket: Socket) {
 
     private var serverSeq = 0
     private var clientSeq = 0
+    private val sendLock = Any()
 
     var pinCode: String? = null; protected set
     protected var encryptionDone = false
+    var lastError: String? = null
     @Volatile private var closed = false
 
     private val payloadBuffers = HashMap<Long, java.io.ByteArrayOutputStream>()
@@ -72,7 +74,10 @@ abstract class NearbyConnection(protected val socket: Socket) {
                 processReceivedFrame(buf)
             }
         } catch (e: Exception) {
-            if (!closed) Log.w(TAG, "Conexión terminada: ${e.message}")
+            if (!closed) {
+                lastError = e.message ?: e.javaClass.simpleName
+                Log.w(TAG, "Conexión terminada: ${e.message}")
+            }
         } finally {
             close()
         }
@@ -99,34 +104,38 @@ abstract class NearbyConnection(protected val socket: Socket) {
     // ---- Canal seguro ----
 
     protected fun encryptAndSendOfflineFrame(frame: OfflineFrame) {
-        serverSeq += 1
-        val d2d = DeviceToDeviceMessage.newBuilder()
-            .setSequenceNumber(serverSeq)
-            .setMessage(frame.toByteString())
-            .build()
-        val iv = Crypto.randomBytes(16)
-        val encrypted = Crypto.aesCbcEncrypt(encryptKey!!, iv, d2d.toByteArray())
-        val meta = GcmMetadata.newBuilder()
-            .setType(GcmType.DEVICE_TO_DEVICE_MESSAGE)
-            .setVersion(1)
-            .build()
-        val hb = HeaderAndBody.newBuilder()
-            .setBody(encrypted.toByteString())
-            .setHeader(
-                SmHeader.newBuilder()
-                    .setEncryptionScheme(EncScheme.AES_256_CBC)
-                    .setSignatureScheme(SigScheme.HMAC_SHA256)
-                    .setIv(iv.toByteString())
-                    .setPublicMetadata(meta.toByteString())
-                    .build()
-            )
-            .build()
-        val hbBytes = hb.toByteArray()
-        val smsg = SecureMessage.newBuilder()
-            .setHeaderAndBody(hbBytes.toByteString())
-            .setSignature(Crypto.hmacSha256(sendHmacKey!!, hbBytes).toByteString())
-            .build()
-        sendFrame(smsg.toByteArray())
+        // Atómico: asignar nº de secuencia y enviar deben ir juntos para que el
+        // orden de secuencia sea monótono aunque haya varios hilos enviando.
+        synchronized(sendLock) {
+            serverSeq += 1
+            val d2d = DeviceToDeviceMessage.newBuilder()
+                .setSequenceNumber(serverSeq)
+                .setMessage(frame.toByteString())
+                .build()
+            val iv = Crypto.randomBytes(16)
+            val encrypted = Crypto.aesCbcEncrypt(encryptKey!!, iv, d2d.toByteArray())
+            val meta = GcmMetadata.newBuilder()
+                .setType(GcmType.DEVICE_TO_DEVICE_MESSAGE)
+                .setVersion(1)
+                .build()
+            val hb = HeaderAndBody.newBuilder()
+                .setBody(encrypted.toByteString())
+                .setHeader(
+                    SmHeader.newBuilder()
+                        .setEncryptionScheme(EncScheme.AES_256_CBC)
+                        .setSignatureScheme(SigScheme.HMAC_SHA256)
+                        .setIv(iv.toByteString())
+                        .setPublicMetadata(meta.toByteString())
+                        .build()
+                )
+                .build()
+            val hbBytes = hb.toByteArray()
+            val smsg = SecureMessage.newBuilder()
+                .setHeaderAndBody(hbBytes.toByteString())
+                .setSignature(Crypto.hmacSha256(sendHmacKey!!, hbBytes).toByteString())
+                .build()
+            sendFrame(smsg.toByteArray())
+        }
     }
 
     protected fun sendTransferSetupFrame(frame: SharingFrame) {

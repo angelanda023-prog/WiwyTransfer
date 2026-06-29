@@ -248,6 +248,7 @@ private fun TvReceive(vm: AppViewModel, onBack: () -> Unit) {
                 LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
             }
             is QsReceiveState.Done -> Text("✅ Recibido (${s.paths.size}) de ${s.sender}", color = Color.White)
+            is QsReceiveState.Error -> Text("❌ ${s.message}", color = Color(0xFFFFCDD2))
             else -> Text("Esperando… Comparte por Quick Share desde tu móvil hacia esta TV.",
                 color = Color(0xCCFFFFFF))
         }

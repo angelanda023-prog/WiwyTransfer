@@ -48,7 +48,7 @@ class InboundNearbyConnection(
     override fun onClosed() {
         // borra archivos a medio recibir
         for (f in files.values) if (f.created) runCatching { f.out?.close(); if (state != State.DISCONNECTED) f.dest.delete() }
-        delegate.onClosed(null)
+        delegate.onClosed(lastError)
     }
 
     override fun processReceivedFrame(frameData: ByteArray) {
@@ -65,6 +65,7 @@ class InboundNearbyConnection(
             }
         } catch (e: Exception) {
             Log.w("WiwyQS", "Error en estado $state: ${e.message}")
+            lastError = "${e.message} (estado $state)"
             close()
         }
     }

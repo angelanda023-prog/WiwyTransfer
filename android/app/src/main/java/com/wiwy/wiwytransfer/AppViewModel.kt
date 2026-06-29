@@ -66,6 +66,7 @@ sealed interface QsReceiveState {
     data object Idle : QsReceiveState
     data class Receiving(val received: Long, val total: Long, val name: String) : QsReceiveState
     data class Done(val paths: List<String>, val sender: String) : QsReceiveState
+    data class Error(val message: String) : QsReceiveState
 }
 
 sealed interface QsSendState {
@@ -150,6 +151,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         override fun onClosed(error: String?) {
             _qsIncoming.value = null
+            if (error != null && _qsReceive.value is QsReceiveState.Receiving) {
+                _qsReceive.value = QsReceiveState.Error(error)
+            }
         }
     })
 

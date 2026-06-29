@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>WiwyTransfer</string>
+    <key>CFBundleDisplayName</key>
+    <string>WiwyTransfer</string>
+    <key>CFBundleExecutable</key>
+    <string>WiwyTransfer</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.wiwy.wiwytransfer</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>WiwyTransfer usa la red WiFi local para descubrir dispositivos y transferir archivos.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_wiwytransfer._tcp</string>
+    </array>
+</dict>
+</plist>

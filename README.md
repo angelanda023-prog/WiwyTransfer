@@ -1,68 +1,100 @@
 # WiwyTransfer
 
-Transferencia de archivos rápida y segura entre tus dispositivos — estilo LocalSend.
+Transferencia de archivos en red WiFi local entre **Android** y **macOS**, estilo QuickShare / Nearby Share.
+Sin servidores ni internet: los dispositivos se descubren por **mDNS/Bonjour** y transfieren **directo por TCP**.
 
-- ⚡ **Transferencia directa (P2P)** cuando ambos dispositivos están en la misma red: máxima velocidad y sin consumir almacenamiento en la nube.
-- ☁️ **Cloudflare R2** solo cuando los dispositivos están en redes diferentes o cuando quieres compartir un archivo mediante un enlace.
-- 📱 Compatible con **Android, Android TV, Windows, macOS y Linux**.
-- 🔒 Transferencias seguras mediante HTTPS y enlaces temporales.
-- 📂 Historial de archivos y posibilidad de compartir mediante URL.
-
-## Arquitectura
+Apps **nativas**: Android en Kotlin (Jetpack Compose), macOS en Swift (SwiftUI).
 
 ```
-        ┌──────────────────────────────────────┐
-        │            Panel Web                 │
-        │  • Subir archivos  • Historial       │
-        │  • Compartir enlaces • Usuarios      │
-        └─────────────────┬────────────────────┘
-                          ▼
-              ┌────────────────────────┐
-              │     Cloudflare R2      │
-              └───────────┬────────────┘
-        ┌─────────────────┼──────────────────┐
-        ▼        ▼         ▼         ▼        ▼
-    Android  Android TV  Windows   macOS    Linux
-
-  Misma red  → Transferencia P2P directa (sin R2)
-  Redes      → Subir a R2 → Descargar desde R2
-  distintas
+WiwyTransfer/
+├── PROTOCOL.md        ← protocolo compartido (descubrimiento + transferencia)
+├── assets/icon/       ← icono de la app
+├── android/           ← app Android (Kotlin + Compose)
+└── macos/             ← app macOS (Swift + SwiftUI, sin Xcode)
 ```
 
-## Estructura del proyecto
+## Requisitos
 
-- `lib/` — aplicación Flutter (Android, Android TV, Windows, macOS, Linux).
-  - `screens/` — pantallas (Enviar, Recibir, Historial, Ajustes).
-  - `models/` — modelos de datos.
-  - `widgets/` — componentes reutilizables.
-- *(próximamente)* `web/` — panel web (Next.js) y `worker/` — API en Cloudflare Workers + R2.
+- Ambos dispositivos en la **misma red WiFi**.
+- Android 8.0 (API 26) o superior.
+- macOS 13 (Ventura) o superior.
 
-## Desarrollo
+---
 
-Requisitos: [Flutter](https://docs.flutter.dev/get-started/install) 3.44+.
+## Android
+
+**Compilar el APK de depuración:**
 
 ```bash
-flutter pub get        # instalar dependencias
-flutter run            # ejecutar en el dispositivo conectado
-flutter test           # ejecutar pruebas
-flutter analyze        # análisis estático
+cd android
+./gradlew :app:assembleDebug
+# APK en: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Compilar
+**Instalar en un dispositivo conectado por USB (con depuración activada):**
 
 ```bash
-flutter build apk --release       # Android
-flutter build macos --release     # macOS
-flutter build windows --release   # Windows
-flutter build linux --release     # Linux
+./gradlew :app:installDebug
+# o:  adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Estado
+> El proyecto trae `local.properties` apuntando al SDK de Android. Si lo clonas en otra
+> máquina, crea ese archivo con `sdk.dir=/ruta/al/Android/sdk`.
 
-🚧 En desarrollo. Actualmente: interfaz base multiplataforma. Próximos pasos:
-descubrimiento de dispositivos en red local (UDP multicast), transferencia P2P,
-integración con Cloudflare R2 y panel web.
+---
 
-## Licencia
+## macOS
 
-MIT
+No necesita Xcode, solo las **Command Line Tools** (Swift 5.9+).
+
+```bash
+cd macos
+./build-app.sh          # compila en release y crea WiwyTransfer.app
+open WiwyTransfer.app    # ejecuta
+```
+
+Para desarrollo rápido sin empaquetar:
+
+```bash
+swift run
+```
+
+### Instalar fuera de la App Store
+
+macOS permite instalar apps fuera de la tienda. `build-app.sh` firma el `.app` con firma
+**ad-hoc**, suficiente para tu propio Mac. Para usarlo:
+
+1. Copia `WiwyTransfer.app` a `/Applications`.
+2. La primera vez: clic derecho → **Abrir** (o Ajustes → Privacidad y seguridad → *Abrir igualmente*).
+3. Acepta el permiso de **red local** cuando lo pida (necesario para descubrir y recibir).
+
+Para distribuir a otros Macs sin avisos hace falta firma + notarización con una cuenta del
+Apple Developer Program.
+
+---
+
+## Cómo se usa
+
+1. Abre la app en ambos dispositivos (en Mac, deja la pestaña **Recibir** visible para poder recibir).
+2. En **Ajustes** puedes cambiar el nombre con el que te ven los demás.
+3. Para enviar: pestaña **Enviar** → *Elegir archivos* → toca el dispositivo destino.
+   - En Android también puedes usar **Compartir → WiwyTransfer** desde cualquier app.
+4. El receptor acepta la solicitud; los archivos llegan a:
+   - **Android:** `Descargas/WiwyTransfer`
+   - **macOS:** `~/Descargas/WiwyTransfer`
+
+---
+
+## Detalles técnicos
+
+- **Descubrimiento:** servicio Bonjour `_wiwytransfer._tcp` con TXT `name`/`os`/`v`.
+  Android usa `NsdManager`; macOS usa `NWBrowser`/`NWListener`.
+- **Transferencia:** una conexión TCP por lote. Cabecera JSON con la lista de archivos y
+  tamaños, confirmación del receptor, y luego los bytes crudos en orden. Ver [PROTOCOL.md](PROTOCOL.md).
+- **Sin cifrado** en esta versión (pensado para redes locales de confianza).
+
+## Limitaciones conocidas
+
+- En Android la recepción funciona con la app en primer plano (modelo "abre para recibir").
+- Sin reanudación de transferencias interrumpidas.
+- Algunas redes WiFi (con *AP/client isolation*) bloquean el tráfico entre dispositivos.

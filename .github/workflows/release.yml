@@ -1,8 +1,7 @@
 name: Release
 
-# Compila WiwyTransfer para todas las plataformas y publica los binarios en
-# GitHub Releases. Se dispara al empujar una etiqueta de versión (p. ej. v1.0.0)
-# o manualmente desde la pestaña Actions.
+# Compila WiwyTransfer (Android + macOS) y publica los binarios en GitHub Releases.
+# Se dispara al empujar una etiqueta de versión (p. ej. v1.0.0) o manualmente.
 on:
   push:
     tags:
@@ -13,7 +12,6 @@ permissions:
   contents: write
 
 jobs:
-  # ---------------------------------------------------------------- Android
   android:
     name: Android (APK)
     runs-on: ubuntu-latest
@@ -22,89 +20,36 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter build apk --release
+          java-version: '17'
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew :app:assembleRelease --console=plain
       - name: Renombrar APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk WiwyTransfer-android.apk
+        run: mv android/app/build/outputs/apk/release/app-release-unsigned.apk WiwyTransfer-android.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android
           path: WiwyTransfer-android.apk
 
-  # ------------------------------------------------------------------ macOS
   macos:
     name: macOS (.dmg)
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter build macos --release
+      - name: Build app bundle
+        working-directory: macos
+        run: ./build-app.sh release
       - name: Empaquetar .dmg
-        run: |
-          APP_PATH=$(find build/macos/Build/Products/Release -maxdepth 1 -name "*.app" | head -1)
-          echo "App: $APP_PATH"
-          npm install -g create-dmg || true
-          hdiutil create -volname "WiwyTransfer" -srcfolder "$APP_PATH" -ov -format UDZO WiwyTransfer-macos.dmg
+        working-directory: macos
+        run: hdiutil create -volname "WiwyTransfer" -srcfolder WiwyTransfer.app -ov -format UDZO ../WiwyTransfer-macos.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: macos
           path: WiwyTransfer-macos.dmg
 
-  # ---------------------------------------------------------------- Windows
-  windows:
-    name: Windows (.zip)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter build windows --release
-      - name: Empaquetar .zip
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath WiwyTransfer-windows.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: WiwyTransfer-windows.zip
-
-  # ------------------------------------------------------------------ Linux
-  linux:
-    name: Linux (.tar.gz)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Dependencias de Linux
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter build linux --release
-      - name: Empaquetar .tar.gz
-        run: tar -czf WiwyTransfer-linux.tar.gz -C build/linux/x64/release/bundle .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux
-          path: WiwyTransfer-linux.tar.gz
-
-  # -------------------------------------------------------------- Publicar
   release:
     name: Publicar en Releases
-    needs: [android, macos, windows, linux]
+    needs: [android, macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:

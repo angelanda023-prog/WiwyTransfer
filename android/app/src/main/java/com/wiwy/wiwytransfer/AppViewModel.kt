@@ -3,8 +3,14 @@ package com.wiwy.wiwytransfer
 import android.app.Application
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.wiwy.wiwytransfer.qs.InboundDelegate
+import com.wiwy.wiwytransfer.qs.InboundNearbyConnection
+import com.wiwy.wiwytransfer.qs.QsFileMeta
+import com.wiwy.wiwytransfer.qs.QuickShareService
+import java.io.File
 import com.wiwy.wiwytransfer.net.Discovery
 import com.wiwy.wiwytransfer.net.OutgoingFile
 import com.wiwy.wiwytransfer.net.Peer
@@ -41,6 +47,22 @@ sealed interface ReceiveState {
     data class Receiving(val progress: TransferProgress) : ReceiveState
     data class Done(val paths: List<String>, val sender: String) : ReceiveState
     data class Error(val message: String) : ReceiveState
+}
+
+/** Solicitud entrante por Quick Share nativo. */
+data class QsIncoming(
+    val conn: InboundNearbyConnection,
+    val sender: String,
+    val pin: String?,
+    val files: List<QsFileMeta>,
+) {
+    val totalBytes: Long get() = files.sumOf { it.size }
+}
+
+sealed interface QsReceiveState {
+    data object Idle : QsReceiveState
+    data class Receiving(val received: Long, val total: Long, val name: String) : QsReceiveState
+    data class Done(val paths: List<String>, val sender: String) : QsReceiveState
 }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -87,10 +109,47 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onError = { msg -> _receiveState.value = ReceiveState.Error(msg) },
     )
 
+    // ---- Quick Share nativo (interop con el del móvil) ----
+    private val _qsIncoming = MutableStateFlow<QsIncoming?>(null)
+    val qsIncoming: StateFlow<QsIncoming?> = _qsIncoming
+
+    private val _qsReceive = MutableStateFlow<QsReceiveState>(QsReceiveState.Idle)
+    val qsReceive: StateFlow<QsReceiveState> = _qsReceive
+
+    private val qsSaveDir =
+        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WiwyTransfer")
+
+    private val quickShare = QuickShareService(app, viewModelScope, qsSaveDir, object : InboundDelegate {
+        override fun onConsent(connection: InboundNearbyConnection, sender: String, pin: String?, files: List<QsFileMeta>) {
+            _qsIncoming.value = QsIncoming(connection, sender, pin, files)
+        }
+        override fun onProgress(received: Long, total: Long, currentFile: String) {
+            _qsReceive.value = QsReceiveState.Receiving(received, total, currentFile)
+        }
+        override fun onFinished(savedPaths: List<String>, sender: String) {
+            _qsReceive.value = QsReceiveState.Done(savedPaths, sender)
+        }
+        override fun onClosed(error: String?) {
+            _qsIncoming.value = null
+        }
+    })
+
     init {
         val port = server.start()
         discovery.registerReceiver(_deviceName.value, osName(), port)
         discovery.startDiscovery()
+        quickShare.start(_deviceName.value)
+    }
+
+    fun respondQs(accept: Boolean) {
+        val inc = _qsIncoming.value ?: return
+        inc.conn.submitConsent(accept)
+        _qsIncoming.value = null
+        if (accept) _qsReceive.value = QsReceiveState.Receiving(0, inc.totalBytes, "")
+    }
+
+    fun resetQsReceive() {
+        _qsReceive.value = QsReceiveState.Idle
     }
 
     private fun osName() = "android"
@@ -102,6 +161,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("device_name", clean).apply()
         // Re-anunciar con el nuevo nombre.
         discovery.registerReceiver(clean, osName(), server.boundPort)
+        quickShare.restart(clean)
     }
 
     fun setSelectedUris(uris: List<Uri>) {
@@ -147,6 +207,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         discovery.unregister()
         discovery.stopDiscovery()
         server.stop()
+        quickShare.stop()
     }
 }
 

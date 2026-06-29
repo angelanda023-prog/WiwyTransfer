@@ -65,6 +65,7 @@ fun AppScreen(vm: AppViewModel) {
     LaunchedEffect(selected) { if (selected.isNotEmpty()) tab = 0 }
 
     val incoming by vm.incoming.collectAsStateWithLifecycle()
+    val qsIncoming by vm.qsIncoming.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -109,6 +110,23 @@ fun AppScreen(vm: AppViewModel) {
             totalBytes = req.header.totalBytes,
             onAccept = { vm.respondIncoming(true) },
             onDecline = { vm.respondIncoming(false) },
+        )
+    }
+
+    qsIncoming?.let { req ->
+        AlertDialog(
+            onDismissRequest = { vm.respondQs(false) },
+            icon = { Icon(Icons.Default.Download, contentDescription = null) },
+            title = { Text("Quick Share") },
+            text = {
+                Text(
+                    "${req.sender} quiere enviarte ${req.files.size} archivo(s) " +
+                        "(${formatBytes(req.totalBytes)})." +
+                        (req.pin?.let { "\nPIN: $it" } ?: "")
+                )
+            },
+            confirmButton = { TextButton(onClick = { vm.respondQs(true) }) { Text("Aceptar") } },
+            dismissButton = { TextButton(onClick = { vm.respondQs(false) }) { Text("Rechazar") } },
         )
     }
 

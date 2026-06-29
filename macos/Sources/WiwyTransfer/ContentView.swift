@@ -106,6 +106,23 @@ struct SendView: View {
                         PeerRow(peer: peer)
                     }
                 }
+
+                if !model.qsDevices.isEmpty {
+                    Divider()
+                    Text("Quick Share cercanos").font(.headline)
+                    ForEach(model.qsDevices) { dev in
+                        HStack {
+                            Image(systemName: dev.type == .phone ? "iphone" : "questionmark.circle")
+                            VStack(alignment: .leading) {
+                                Text(dev.name)
+                                Text("Quick Share").font(.caption).foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Text("envío en paso 3").font(.caption2).foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
             }
             .padding()
         }
@@ -189,6 +206,17 @@ struct ReceiveView: View {
                         Text(model.deviceName).font(.title3).bold()
                         Text("Se guardará en Descargas/WiwyTransfer.")
                             .font(.caption).foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Quick Share (interop, experimental)", systemImage: "dot.radiowaves.left.and.right")
+                            .font(.caption)
+                        Text(model.qsStatus).font(.callout)
+                        Text("Abre Compartir → Quick Share en tu Android (misma WiFi) y busca este Mac.")
+                            .font(.caption2).foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }

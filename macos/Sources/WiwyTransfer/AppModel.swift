@@ -32,6 +32,11 @@ final class AppModel: ObservableObject {
     @Published var incoming: IncomingRequest?
     @Published var selectedFiles: [URL] = []
 
+    // Quick Share (interop con el nativo de Android)
+    @Published var qsStatus = "Iniciando Quick Share…"
+    @Published var qsDevices: [QSDevice] = []
+    private let quickShare = QuickShareManager()
+
     private var server: TransferServer?
     private var discovery: Discovery?
 
@@ -75,6 +80,17 @@ final class AppModel: ObservableObject {
         discovery.setOwnServiceName(server.serviceName)
         discovery.start()
         self.discovery = discovery
+
+        // Quick Share nativo
+        quickShare.onStatus = { [weak self] s in Task { @MainActor in self?.qsStatus = s } }
+        quickShare.onDevices = { [weak self] d in Task { @MainActor in self?.qsDevices = d } }
+        quickShare.onIncoming = { [weak self] conn in
+            Task { @MainActor in
+                self?.qsStatus = "Conexión entrante de Quick Share recibida — recepción en construcción (paso 2)."
+            }
+            conn.cancel()
+        }
+        quickShare.start(deviceName: deviceName)
     }
 
     private func requestAccept(header: TransferHeader, peerAddress: String) async -> Bool {
@@ -100,6 +116,7 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(final, forKey: "device_name")
         server?.restart(displayName: final, os: osName)
         if let server = server { discovery?.setOwnServiceName(server.serviceName) }
+        quickShare.restart(deviceName: final)
     }
 
     func refresh() {

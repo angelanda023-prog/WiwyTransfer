@@ -17,8 +17,13 @@ struct WiwyTransferApp: App {
 /// Arranca los servicios, configura la app como accesorio (sin Dock ni ventana)
 /// y gestiona archivos abiertos con "Abrir con… WiwyTransfer".
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let servicesProvider = ServicesProvider()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // sin Dock; vive en la barra de menús
+        // Menú Servicios: clic derecho → Servicios → "Enviar con WiwyTransfer"
+        NSApp.servicesProvider = servicesProvider
+        NSUpdateDynamicServices()
         MainActor.assumeIsolated {
             AppModel.shared.start()
         }
@@ -67,6 +72,21 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         // Al cerrar la ventana, volver a ser solo barra de menús (sin Dock).
         NSApp.setActivationPolicy(.accessory)
+    }
+}
+
+/// Proveedor del menú Servicios de macOS ("Enviar con WiwyTransfer").
+final class ServicesProvider: NSObject {
+    @objc func sendViaWiwyTransfer(_ pboard: NSPasteboard, userData: String?,
+                                   error: AutoreleasingUnsafeMutablePointer<NSString>?) {
+        let urls = (pboard.readObjects(forClasses: [NSURL.self]) as? [URL])?
+            .filter { $0.isFileURL } ?? []
+        guard !urls.isEmpty else { return }
+        MainActor.assumeIsolated {
+            AppModel.shared.selectedFiles = urls
+            AppModel.shared.sendState = .idle
+            MainWindowController.shared.show(initialTab: .send)
+        }
     }
 }
 

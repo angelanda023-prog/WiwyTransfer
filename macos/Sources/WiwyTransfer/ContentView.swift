@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 enum SidebarItem: String, CaseIterable, Identifiable {
     case receive = "Recibir archivos"
@@ -153,6 +154,9 @@ struct SendView: View {
                 }
                 .controlSize(.large)
 
+                Text("También puedes arrastrar archivos a esta ventana.")
+                    .font(.caption).foregroundColor(.secondary)
+
                 if !model.selectedFiles.isEmpty {
                     GroupBox {
                         VStack(alignment: .leading, spacing: 4) {
@@ -234,6 +238,27 @@ struct SendView: View {
             .frame(maxWidth: .infinity)
         }
         .navigationTitle("Enviar archivos")
+        .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
+            for provider in providers {
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) { item, _ in
+                    var url: URL?
+                    if let data = item as? Data {
+                        url = URL(dataRepresentation: data, relativeTo: nil)
+                    } else if let u = item as? URL {
+                        url = u
+                    }
+                    if let url = url {
+                        DispatchQueue.main.async {
+                            if !model.selectedFiles.contains(url) {
+                                model.selectedFiles.append(url)
+                                model.sendState = .idle
+                            }
+                        }
+                    }
+                }
+            }
+            return true
+        }
     }
 
     @ViewBuilder private var sendStatus: some View {

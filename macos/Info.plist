@@ -30,6 +30,21 @@
     <true/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>WiwyTransfer usa la red WiFi local para descubrir dispositivos y transferir archivos.</string>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Cualquier archivo</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.item</string>
+            </array>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+        </dict>
+    </array>
     <key>NSBonjourServices</key>
     <array>
         <string>_wiwytransfer._tcp</string>

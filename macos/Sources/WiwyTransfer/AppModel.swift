@@ -52,6 +52,7 @@ final class AppModel: ObservableObject {
     @Published var qsSending = false
     @Published var qsSendStatus = ""
     @Published var qsSendProgress: Double = 0
+    @Published var requestedTab: SidebarItem?
     private let quickShare = QuickShareManager()
     private let qsReceiver = QSReceiver()
     private let qsSender = QSSender()

@@ -15,10 +15,8 @@ struct WiwyTransferApp: App {
 }
 
 /// Arranca los servicios, configura la app como accesorio (sin Dock ni ventana)
-/// y crea la ventana principal solo bajo demanda.
+/// y gestiona archivos abiertos con "Abrir con… WiwyTransfer".
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var window: NSWindow?
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // sin Dock; vive en la barra de menús
         MainActor.assumeIsolated {
@@ -30,22 +28,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
-    @MainActor func showMainWindow() {
+    // Finder → "Abrir con… WiwyTransfer" (o arrastrar archivos sobre el icono).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        MainActor.assumeIsolated {
+            AppModel.shared.selectedFiles = urls
+            AppModel.shared.sendState = .idle
+            MainWindowController.shared.show(initialTab: .send)
+        }
+    }
+}
+
+/// Controlador de la ventana principal (creada bajo demanda, no al iniciar).
+@MainActor
+final class MainWindowController: NSObject, NSWindowDelegate {
+    static let shared = MainWindowController()
+    private var window: NSWindow?
+
+    func show(initialTab: SidebarItem? = nil) {
+        if let tab = initialTab { AppModel.shared.requestedTab = tab }
+
         if window == nil {
-            let root = ContentView()
-                .environmentObject(AppModel.shared)
-                .frame(minWidth: 440, minHeight: 560)
-            let w = NSWindow(contentViewController: NSHostingController(rootView: root))
+            let root = ContentView().environmentObject(AppModel.shared)
+            let hosting = NSHostingController(rootView: root)
+            let w = NSWindow(contentViewController: hosting)
             w.title = "WiwyTransfer"
             w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            w.setContentSize(NSSize(width: 470, height: 620))
+            w.setContentSize(NSSize(width: 720, height: 560))
             w.isReleasedWhenClosed = false
+            w.delegate = self
+            w.center()
             window = w
         }
-        NSApp.setActivationPolicy(.regular)
-        window?.center()
+        NSApp.setActivationPolicy(.regular) // mostrar en Dock mientras hay ventana
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        // Al cerrar la ventana, volver a ser solo barra de menús (sin Dock).
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 
@@ -56,7 +77,6 @@ struct MenuBarView: View {
         Text("WiwyTransfer").font(.headline)
         Divider()
 
-        // Solicitud entrante pendiente: aceptar/rechazar desde el propio menú.
         if let req = model.qsIncoming {
             Text("\(req.sender) quiere enviarte \(req.fileCount) archivo(s)")
             Button("✅ Aceptar") { model.respondQuickShare(id: req.id, accepted: true) }
@@ -65,13 +85,11 @@ struct MenuBarView: View {
         }
 
         Text(model.qsStatus)
-        if model.qsReceiving {
-            Text(model.qsProgressText)
-        }
+        if model.qsReceiving { Text(model.qsProgressText) }
         Divider()
 
         Button("Abrir ventana…") {
-            (NSApp.delegate as? AppDelegate)?.showMainWindow()
+            MainWindowController.shared.show()
         }
         Button("Salir") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")

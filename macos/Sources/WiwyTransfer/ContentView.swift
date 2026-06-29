@@ -47,6 +47,9 @@ struct ContentView: View {
         .onChange(of: model.selectedFiles) { files in
             if !files.isEmpty { selection = .send }
         }
+        .onChange(of: model.requestedTab) { tab in
+            if let tab = tab { selection = tab; model.requestedTab = nil }
+        }
     }
 }
 

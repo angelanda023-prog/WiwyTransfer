@@ -267,6 +267,6 @@ private fun TvReceive(vm: AppViewModel, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(8.dp))
         }
-        Box(Modifier.weight(1f)) { ReceivedScreen(vm.receivedDir) }
+        Box(Modifier.weight(1f)) { ReceivedScreen(vm.receivedDir, refreshKey = qsReceive) }
     }
 }

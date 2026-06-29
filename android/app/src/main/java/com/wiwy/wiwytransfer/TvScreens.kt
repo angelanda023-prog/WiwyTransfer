@@ -101,10 +101,10 @@ private fun BrowserRow(entry: FileEntry, checked: Boolean, onClick: () -> Unit) 
 /** Pantalla de archivos recibidos: navegar y abrir. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReceivedScreen(dir: File) {
+fun ReceivedScreen(dir: File, refreshKey: Any = Unit) {
     val context = LocalContext.current
     var refresh by remember { mutableStateOf(0) }
-    val entries by remember(refresh) { mutableStateOf(StorageBrowser.list(dir)) }
+    val entries by remember(refresh, refreshKey) { mutableStateOf(StorageBrowser.list(dir)) }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

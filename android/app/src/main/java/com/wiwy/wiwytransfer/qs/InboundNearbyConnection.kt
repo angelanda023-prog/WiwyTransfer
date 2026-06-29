@@ -215,8 +215,8 @@ class InboundNearbyConnection(
             sendTransferSetupFrame(resp)
             QsDebug.log("→ RESPONSE ACCEPT enviado, esperando archivos…")
         } catch (e: Exception) {
-            QsDebug.log("❌ Error al aceptar: ${e.message}")
-            lastError = e.message
+            QsDebug.log("❌ Error al aceptar: ${e.javaClass.simpleName} ${e.message}")
+            lastError = "${e.javaClass.simpleName}: ${e.message}"
             close()
         }
     }

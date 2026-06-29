@@ -190,9 +190,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun respondQs(accept: Boolean) {
         val inc = _qsIncoming.value ?: return
-        inc.conn.submitConsent(accept)
         _qsIncoming.value = null
         if (accept) _qsReceive.value = QsReceiveState.Receiving(0, inc.totalBytes, "")
+        // La aceptación envía por red: NUNCA en el hilo principal (NetworkOnMainThreadException).
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            inc.conn.submitConsent(accept)
+        }
     }
 
     fun resetQsReceive() {

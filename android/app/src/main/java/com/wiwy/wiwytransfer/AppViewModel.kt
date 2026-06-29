@@ -8,7 +8,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wiwy.wiwytransfer.qs.InboundDelegate
 import com.wiwy.wiwytransfer.qs.InboundNearbyConnection
+import com.wiwy.wiwytransfer.qs.OutboundDelegate
 import com.wiwy.wiwytransfer.qs.QsFileMeta
+import com.wiwy.wiwytransfer.qs.QsOutgoingFile
+import com.wiwy.wiwytransfer.qs.QsPeer
 import com.wiwy.wiwytransfer.qs.QuickShareService
 import java.io.File
 import com.wiwy.wiwytransfer.net.Discovery
@@ -65,6 +68,13 @@ sealed interface QsReceiveState {
     data class Done(val paths: List<String>, val sender: String) : QsReceiveState
 }
 
+sealed interface QsSendState {
+    data object Idle : QsSendState
+    data class Sending(val fraction: Double) : QsSendState
+    data object Done : QsSendState
+    data class Failed(val message: String) : QsSendState
+}
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = app.getSharedPreferences("wiwy", android.content.Context.MODE_PRIVATE)
@@ -77,8 +87,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val discovery = Discovery(app)
     val peers: StateFlow<List<Peer>> get() = discovery.peers
 
-    private val _selectedFiles = MutableStateFlow<List<OutgoingFile>>(emptyList())
-    val selectedFiles: StateFlow<List<OutgoingFile>> = _selectedFiles
+    private val _selectedFiles = MutableStateFlow<List<QsOutgoingFile>>(emptyList())
+    val selectedFiles: StateFlow<List<QsOutgoingFile>> = _selectedFiles
 
     private val _incoming = MutableStateFlow<IncomingRequest?>(null)
     val incoming: StateFlow<IncomingRequest?> = _incoming
@@ -116,6 +126,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _qsReceive = MutableStateFlow<QsReceiveState>(QsReceiveState.Idle)
     val qsReceive: StateFlow<QsReceiveState> = _qsReceive
 
+    private val _qsPeers = MutableStateFlow<List<QsPeer>>(emptyList())
+    val qsPeers: StateFlow<List<QsPeer>> = _qsPeers
+
+    private val _qsSend = MutableStateFlow<QsSendState>(QsSendState.Idle)
+    val qsSend: StateFlow<QsSendState> = _qsSend
+
     private val qsSaveDir =
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "WiwyTransfer")
 
@@ -138,7 +154,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val port = server.start()
         discovery.registerReceiver(_deviceName.value, osName(), port)
         discovery.startDiscovery()
+        quickShare.onPeers = { peers -> _qsPeers.value = peers }
         quickShare.start(_deviceName.value)
+    }
+
+    fun sendQs(peer: QsPeer) {
+        val files = _selectedFiles.value
+        if (files.isEmpty()) return
+        _qsSend.value = QsSendState.Sending(0.0)
+        quickShare.sendFiles(peer, files, object : OutboundDelegate {
+            override fun onEstablished() {}
+            override fun onAccepted() { _qsSend.value = QsSendState.Sending(0.0) }
+            override fun onProgress(fraction: Double) { _qsSend.value = QsSendState.Sending(fraction) }
+            override fun onFinished() { _qsSend.value = QsSendState.Done }
+            override fun onFailed(message: String) { _qsSend.value = QsSendState.Failed(message) }
+        })
+    }
+
+    /** Selección desde el explorador de archivos (TV). */
+    fun setSelectedFiles(files: List<QsOutgoingFile>) {
+        _selectedFiles.value = files
+        _sendState.value = SendState.Idle
+        _qsSend.value = QsSendState.Idle
     }
 
     fun respondQs(accept: Boolean) {
@@ -186,8 +223,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun sendTo(peer: Peer) {
-        val files = _selectedFiles.value
-        if (files.isEmpty()) return
+        val selected = _selectedFiles.value
+        if (selected.isEmpty()) return
+        val files = selected.map { OutgoingFile(it.name, it.size, it.open) }
         _sendState.value = SendState.Sending(0, files.sumOf { it.size })
         viewModelScope.launch {
             val client = TransferClient(_deviceName.value, osName())

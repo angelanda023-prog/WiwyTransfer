@@ -66,6 +66,18 @@ fun AppScreen(vm: AppViewModel) {
 
     val incoming by vm.incoming.collectAsStateWithLifecycle()
     val qsIncoming by vm.qsIncoming.collectAsStateWithLifecycle()
+    var showBrowser by remember { mutableStateOf(false) }
+
+    if (showBrowser) {
+        FileBrowserScreen(
+            onPick = { files ->
+                vm.setSelectedFiles(files.map { com.wiwy.wiwytransfer.storage.StorageBrowser.toOutgoing(it) })
+                showBrowser = false
+            },
+            onCancel = { showBrowser = false },
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -92,13 +104,20 @@ fun AppScreen(vm: AppViewModel) {
                     icon = { Icon(Icons.Default.Download, contentDescription = null) },
                     label = { Text("Recibir") },
                 )
+                NavigationBarItem(
+                    selected = tab == 2,
+                    onClick = { tab = 2 },
+                    icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
+                    label = { Text("Recibidos") },
+                )
             }
         },
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (tab) {
-                0 -> SendTab(vm)
-                else -> ReceiveTab(vm)
+                0 -> SendTab(vm, onBrowse = { showBrowser = true })
+                1 -> ReceiveTab(vm)
+                else -> ReceivedScreen()
             }
         }
     }
@@ -136,10 +155,13 @@ fun AppScreen(vm: AppViewModel) {
 }
 
 @Composable
-fun SendTab(vm: AppViewModel) {
+fun SendTab(vm: AppViewModel, onBrowse: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val selected by vm.selectedFiles.collectAsStateWithLifecycle()
     val peers by vm.peers.collectAsStateWithLifecycle()
     val sendState by vm.sendState.collectAsStateWithLifecycle()
+    val qsPeers by vm.qsPeers.collectAsStateWithLifecycle()
+    val qsSend by vm.qsSend.collectAsStateWithLifecycle()
 
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(
         ActivityResultContracts.GetMultipleContents()
@@ -157,6 +179,21 @@ fun SendTab(vm: AppViewModel) {
                 Icon(Icons.Default.AttachFile, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Elegir archivos")
+            }
+        }
+        item {
+            OutlinedButton(
+                onClick = {
+                    if (com.wiwy.wiwytransfer.storage.StorageBrowser.hasAllFilesAccess(context)) onBrowse()
+                    else runCatching {
+                        context.startActivity(com.wiwy.wiwytransfer.storage.StorageBrowser.manageAllFilesIntent(context))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.FolderOpen, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Explorar archivos (recomendado en TV)")
             }
         }
 
@@ -225,6 +262,59 @@ fun SendTab(vm: AppViewModel) {
                     onClick = { vm.sendTo(peer) },
                 )
             }
+        }
+
+        item {
+            Spacer(Modifier.height(4.dp))
+            Text("Quick Share cercanos", style = MaterialTheme.typography.titleMedium)
+            Text("El otro dispositivo debe tener abierta su pantalla de “Recibir” de Quick Share.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            when (val s = qsSend) {
+                is QsSendState.Sending -> Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("Enviando… ${(s.fraction * 100).toInt()}%")
+                        LinearProgressIndicator(progress = { s.fraction.toFloat() }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                QsSendState.Done -> StatusBanner(Icons.Default.CheckCircle, "Enviado por Quick Share", true)
+                is QsSendState.Failed -> StatusBanner(Icons.Default.Error, "Error: ${s.message}", false)
+                QsSendState.Idle -> {}
+            }
+        }
+        if (qsPeers.isEmpty()) {
+            item {
+                Text("Buscando dispositivos Quick Share…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            items(qsPeers, key = { it.id }) { peer ->
+                QsPeerRow(
+                    peer = peer,
+                    enabled = selected.isNotEmpty() && qsSend !is QsSendState.Sending,
+                    onClick = { vm.sendQs(peer) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun QsPeerRow(peer: com.wiwy.wiwytransfer.qs.QsPeer, enabled: Boolean, onClick: () -> Unit) {
+    Card(onClick = { if (enabled) onClick() }, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Devices, contentDescription = null)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(peer.name, style = MaterialTheme.typography.titleSmall)
+                Text("Quick Share", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Default.Send, contentDescription = "Enviar",
+                tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

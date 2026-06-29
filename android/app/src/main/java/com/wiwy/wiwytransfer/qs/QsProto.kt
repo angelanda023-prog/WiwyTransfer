@@ -57,6 +57,7 @@ typealias PayloadType = com.google.location.nearby.connections.proto.OfflineWire
 typealias PayloadChunk = com.google.location.nearby.connections.proto.OfflineWireFormatsProto.PayloadTransferFrame.PayloadChunk
 typealias OsType = com.google.location.nearby.connections.proto.OfflineWireFormatsProto.OsInfo.OsType
 typealias ConnResponseStatus = com.google.location.nearby.connections.proto.OfflineWireFormatsProto.ConnectionResponseFrame.ResponseStatus
+typealias ConnMedium = com.google.location.nearby.connections.proto.OfflineWireFormatsProto.ConnectionRequestFrame.Medium
 
 typealias SharingVersion = com.google.android.gms.nearby.sharing.Protocol.Frame.Version
 typealias SharingFrameType = com.google.android.gms.nearby.sharing.Protocol.V1Frame.FrameType

@@ -8,7 +8,7 @@ import android.os.Environment
 import android.provider.Settings
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
-import com.wiwy.wiwytransfer.net.OutgoingFile
+import com.wiwy.wiwytransfer.qs.QsOutgoingFile
 import java.io.File
 
 /** Una entrada en el explorador de archivos. */
@@ -39,8 +39,8 @@ object StorageBrowser {
     }
 
     /** Convierte un archivo en un envío. */
-    fun toOutgoing(file: File): OutgoingFile =
-        OutgoingFile(name = file.name, size = file.length()) { file.inputStream() }
+    fun toOutgoing(file: File): QsOutgoingFile =
+        QsOutgoingFile(name = file.name, size = file.length(), mimeType = mimeOf(file)) { file.inputStream() }
 
     // ---- Permisos de acceso a archivos ----
 

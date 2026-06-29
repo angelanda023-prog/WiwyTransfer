@@ -3,11 +3,12 @@ package com.wiwy.wiwytransfer.storage
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
-import com.wiwy.wiwytransfer.net.OutgoingFile
+import android.webkit.MimeTypeMap
+import com.wiwy.wiwytransfer.qs.QsOutgoingFile
 
-/** Convierte content:// URIs (del selector o de compartir) en [OutgoingFile]. */
+/** Convierte content:// URIs (del selector o de compartir) en [QsOutgoingFile]. */
 object UriFiles {
-    fun fromUris(context: Context, uris: List<Uri>): List<OutgoingFile> {
+    fun fromUris(context: Context, uris: List<Uri>): List<QsOutgoingFile> {
         val resolver = context.contentResolver
         return uris.mapNotNull { uri ->
             var name = "archivo"
@@ -28,7 +29,10 @@ object UriFiles {
                 }.getOrNull() ?: -1L
             }
             if (size < 0) return@mapNotNull null
-            OutgoingFile(name = name, size = size) {
+            val mime = resolver.getType(uri)
+                ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+                ?: "application/octet-stream"
+            QsOutgoingFile(name = name, size = size, mimeType = mime) {
                 resolver.openInputStream(uri) ?: error("No se pudo abrir $name")
             }
         }

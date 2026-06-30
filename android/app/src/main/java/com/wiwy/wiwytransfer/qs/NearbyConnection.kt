@@ -313,15 +313,13 @@ abstract class NearbyConnection(protected val socket: Socket) {
     }
 
     /**
-     * Cierre ordenado tras enviar: media-cierre de salida (FIN) y seguir leyendo
-     * para drenar lo que mande el otro lado y evitar un RST que rompa la recepción.
+     * Tras enviar todo: NO cerrar ni medio-cerrar. Mantener la conexión abierta
+     * y seguir leyendo (respondiendo keep-alives) hasta que el receptor termine de
+     * guardar y cierre él mismo (envía su desconexión). Un timeout evita colgarse.
      */
     protected fun finishSendingGracefully() {
-        runCatching {
-            socket.soTimeout = 8000
-            socket.shutdownOutput()
-        }
-        // El bucle de lectura seguirá hasta que el otro lado cierre (EOF) o se agote el tiempo.
+        runCatching { socket.soTimeout = 15000 }
+        // El bucle de lectura sigue: el receptor enviará su desconexión y cerrará (EOF).
     }
 
     protected fun sendDisconnectionAndDisconnect() {

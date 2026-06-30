@@ -270,8 +270,7 @@ class OutboundNearbyConnection(
                     encryptAndSendOfflineFrame(wrapFile(eof))
                 }
             }
-            QsDebug.log("✅ Todos enviados, cierre ordenado")
-            sendDisconnection()
+            QsDebug.log("✅ Todos enviados, esperando que el receptor cierre…")
             delegate.onFinished()
             finishSendingGracefully()
         } catch (e: Exception) {

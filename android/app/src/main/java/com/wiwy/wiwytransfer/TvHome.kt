@@ -270,7 +270,7 @@ private fun TvHome(
         // Cabecera
         Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id = R.mipmap.ic_launcher),
+                painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
             )
@@ -391,7 +391,7 @@ private fun TvDevices(vm: AppViewModel, onBack: () -> Unit) {
         // Cabecera
         Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(id = R.mipmap.ic_launcher),
+                painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
             )

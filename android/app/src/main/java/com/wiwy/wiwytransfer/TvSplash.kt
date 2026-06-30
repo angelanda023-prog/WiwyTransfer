@@ -351,7 +351,7 @@ private fun buildParticles(center: Offset, side: Float, box: Rect): List<Particl
 }
 
 /** Muestrea puntos dentro de la silueta del avión (para que las partículas lo formen). */
-private fun sampleInsidePlane(box: Rect, count: Int, rnd: Random): List<Offset> {
+private fun sampleInsidePlane(box: Rect, count: Int, rnd: Random): List<Offset> = runCatching {
     val pts = listOf(PLANE_TIP, PLANE_LEFT, PLANE_NOTCH, PLANE_BOTTOM).map { planePoint(box, it) }
     val path = android.graphics.Path().apply {
         moveTo(pts[0].x, pts[0].y)
@@ -374,8 +374,8 @@ private fun sampleInsidePlane(box: Rect, count: Int, rnd: Random): List<Offset> 
     }
     // por si la región fuese degenerada
     while (out.size < count) out.add(box.center)
-    return out
-}
+    out
+}.getOrElse { List(count) { box.center } }
 
 private fun planePoint(box: Rect, n: Offset) =
     Offset(box.left + n.x * box.width, box.top + n.y * box.height)

@@ -13,6 +13,7 @@ data class MediaEntry(
     val name: String,
     val size: Long,
     val mime: String,
+    val dateMillis: Long = 0L,
 ) {
     val isImage get() = mime.startsWith("image/")
     val isVideo get() = mime.startsWith("video/")
@@ -58,6 +59,7 @@ object MediaRepo {
             MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.MediaColumns.SIZE,
             MediaStore.MediaColumns.MIME_TYPE,
+            MediaStore.MediaColumns.DATE_ADDED,
         )
         val sort = "${MediaStore.MediaColumns.DATE_ADDED} DESC"
         runCatching {
@@ -66,6 +68,7 @@ object MediaRepo {
                 val nameC = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
                 val sizeC = c.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
                 val mimeC = c.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+                val dateC = c.getColumnIndex(MediaStore.MediaColumns.DATE_ADDED)
                 while (c.moveToNext()) {
                     val id = c.getLong(idC)
                     out.add(
@@ -74,6 +77,7 @@ object MediaRepo {
                             name = c.getString(nameC) ?: "archivo",
                             size = if (c.isNull(sizeC)) 0 else c.getLong(sizeC),
                             mime = c.getString(mimeC) ?: "application/octet-stream",
+                            dateMillis = if (dateC >= 0 && !c.isNull(dateC)) c.getLong(dateC) * 1000 else 0L,
                         )
                     )
                 }

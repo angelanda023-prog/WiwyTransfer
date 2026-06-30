@@ -43,6 +43,7 @@ private sealed interface TvNav {
     data class Media(val title: String, val kind: MediaKind) : TvNav
     data class FilesByExt(val title: String, val exts: Set<String>) : TvNav
     data object Apk : TvNav
+    data class Sections(val section: Section) : TvNav
     data object Receive : TvNav
     data object Devices : TvNav
 }
@@ -90,12 +91,14 @@ fun TvAppScreen(vm: AppViewModel) {
         when (val n = nav) {
             TvNav.Home -> TvHome(
                 vm = vm,
-                onSend = { nav = TvNav.Browse("Enviar", null) },
+                onSend = { nav = TvNav.Sections(Section.MIS_ARCHIVOS) },
                 onReceive = { nav = TvNav.Receive },
-                onBrowse = { title, exts, flat -> nav = TvNav.Browse(title, exts, flat) },
-                onMedia = { title, kind -> nav = TvNav.Media(title, kind) },
-                onFilesByExt = { title, exts -> nav = TvNav.FilesByExt(title, exts) },
-                onApk = { nav = TvNav.Apk },
+                onSection = { s -> nav = TvNav.Sections(s) },
+            )
+            is TvNav.Sections -> TvSections(
+                vm = vm, initial = n.section,
+                onSend = { files -> vm.setSelectedFiles(files); nav = TvNav.Devices },
+                onExit = { nav = TvNav.Home },
             )
             is TvNav.Browse -> FileBrowserScreen(
                 title = n.title, exts = n.exts, flat = n.flat,
@@ -215,10 +218,7 @@ private fun TvHome(
     vm: AppViewModel,
     onSend: () -> Unit,
     onReceive: () -> Unit,
-    onBrowse: (String, Set<String>?, Boolean) -> Unit,
-    onMedia: (String, MediaKind) -> Unit,
-    onFilesByExt: (String, Set<String>) -> Unit,
-    onApk: () -> Unit,
+    onSection: (Section) -> Unit,
 ) {
     val qsStatus by vm.qsStatus.collectAsStateWithLifecycle()
     val storage = remember { storageInfo() }
@@ -256,12 +256,12 @@ private fun TvHome(
 
         // Categorías
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            CatTile(Modifier.weight(1f), "Mis archivos", Icons.Default.Folder, Color(0xFF4FC3F7)) { onBrowse("Mis archivos", null, false) }
-            CatTile(Modifier.weight(1f), "Videos", Icons.Default.Movie, Color(0xFFB388FF)) { onMedia("Vídeos", MediaKind.VIDEOS) }
-            CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image, Color(0xFF4DD0E1)) { onMedia("Imágenes", MediaKind.IMAGES) }
-            CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote, Color(0xFFFF80AB)) { onMedia("Música", MediaKind.AUDIO) }
-            CatTile(Modifier.weight(1f), "APK", Icons.Default.Android, Color(0xFF8BC34A)) { onApk() }
-            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description, Color(0xFFFFD54F)) { onFilesByExt("Documentos", Exts.DOC) }
+            CatTile(Modifier.weight(1f), "Mis archivos", Icons.Default.Folder, Color(0xFF4FC3F7)) { onSection(Section.MIS_ARCHIVOS) }
+            CatTile(Modifier.weight(1f), "Videos", Icons.Default.Movie, Color(0xFFB388FF)) { onSection(Section.VIDEOS) }
+            CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image, Color(0xFF4DD0E1)) { onSection(Section.IMAGENES) }
+            CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote, Color(0xFFFF80AB)) { onSection(Section.MUSICA) }
+            CatTile(Modifier.weight(1f), "APK", Icons.Default.Android, Color(0xFF8BC34A)) { onSection(Section.APK) }
+            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description, Color(0xFFFFD54F)) { onSection(Section.DOCUMENTOS) }
         }
 
         Spacer(Modifier.height(20.dp))

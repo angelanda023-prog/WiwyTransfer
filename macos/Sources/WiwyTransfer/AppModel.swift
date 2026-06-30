@@ -243,8 +243,12 @@ final class AppModel: ObservableObject {
     private func requestAccept(header: TransferHeader, peerAddress: String) async -> Bool {
         await withCheckedContinuation { cont in
             Task { @MainActor in
-                self.incoming = IncomingRequest(header: header, peerAddress: peerAddress) { accept in
+                var resumed = false
+                let respond: (Bool) -> Void = { accept in
+                    if resumed { return }
+                    resumed = true
                     self.incoming = nil
+                    QSApprovalPanel.shared.close()
                     if accept {
                         self.receiveState = .receiving(ReceiveProgress(
                             sender: header.sender, fileIndex: 0, fileCount: header.files.count,
@@ -252,6 +256,14 @@ final class AppModel: ObservableObject {
                     }
                     cont.resume(returning: accept)
                 }
+                self.incoming = IncomingRequest(header: header, peerAddress: peerAddress, respond: respond)
+                // Ventana flotante arriba (igual que Quick Share), también para el protocolo propio.
+                let desc = header.files.count == 1 ? header.files[0].name : "\(header.files.count) archivos"
+                QSApprovalPanel.shared.show(
+                    title: "WiwyTransfer",
+                    subtitle: "\(desc) de \(header.sender)",
+                    onAccept: { respond(true) },
+                    onReject: { respond(false) })
             }
         }
     }

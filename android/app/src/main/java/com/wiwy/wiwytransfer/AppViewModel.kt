@@ -166,6 +166,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun sendQs(peer: QsPeer) {
         val files = _selectedFiles.value
         if (files.isEmpty()) return
+        com.wiwy.wiwytransfer.qs.QsDebug.clear()
         _qsSend.value = QsSendState.Sending(0.0)
         quickShare.sendFiles(peer, files, object : OutboundDelegate {
             override fun onEstablished() {}

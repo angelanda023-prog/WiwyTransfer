@@ -1,6 +1,5 @@
 package com.wiwy.wiwytransfer.qs
 
-import android.util.Log
 import java.io.InputStream
 import java.net.Socket
 
@@ -45,6 +44,7 @@ class OutboundNearbyConnection(
     override fun isServer() = false
 
     override fun connectionReady() {
+        QsDebug.log("📤 Conectado, iniciando handshake")
         try {
             sendConnectionRequest()
             sendUkey2ClientInit()
@@ -156,7 +156,7 @@ class OutboundNearbyConnection(
             .build()
         sendFrame(resp.toByteArray())
         encryptionDone = true
-        Log.i("WiwyQS", "UKEY2 cliente completado")
+        QsDebug.log("🔐 UKEY2 cliente completado")
         delegate.onEstablished()
     }
 
@@ -219,6 +219,7 @@ class OutboundNearbyConnection(
 
     private fun processConsent(frame: SharingFrame) {
         if (!frame.hasV1() || frame.v1.type != SharingFrameType.RESPONSE) throw NearbyException("esperaba response")
+        QsDebug.log("📥 Respuesta del receptor: ${frame.v1.connectionResponse.status}")
         when (frame.v1.connectionResponse.status) {
             SharingResponseStatus.ACCEPT -> {
                 state = State.SENDING_FILES
@@ -233,6 +234,7 @@ class OutboundNearbyConnection(
         try {
             val buf = ByteArray(512 * 1024)
             for (out in queue) {
+                QsDebug.log("⬆️ Enviando ${out.meta.name} (${out.meta.size}b)")
                 out.meta.open().use { input ->
                     var offset = 0L
                     while (true) {
@@ -268,10 +270,11 @@ class OutboundNearbyConnection(
                     encryptAndSendOfflineFrame(wrapFile(eof))
                 }
             }
+            QsDebug.log("✅ Todos los archivos enviados, desconectando")
             delegate.onFinished()
             sendDisconnectionAndDisconnect()
         } catch (e: Exception) {
-            fail(e.message ?: "error enviando")
+            fail("${e.javaClass.simpleName}: ${e.message}")
         }
     }
 
@@ -282,7 +285,7 @@ class OutboundNearbyConnection(
             .build()
 
     private fun fail(message: String) {
-        Log.w("WiwyQS", "Envío falló: $message")
+        QsDebug.log("❌ Envío falló: $message")
         delegate.onFailed(message)
         close()
     }

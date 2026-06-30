@@ -252,6 +252,20 @@ private fun TvDevices(vm: AppViewModel, onBack: () -> Unit) {
         }
         qsPeers.forEach { p -> DeviceRow(p.name, "Quick Share") { vm.sendQs(p) } }
         peers.forEach { p -> DeviceRow(p.displayName, "WiwyTransfer") { vm.sendTo(p) } }
+
+        Spacer(Modifier.height(12.dp))
+        val logLines by com.wiwy.wiwytransfer.qs.QsDebug.lines.collectAsStateWithLifecycle()
+        if (logLines.isNotEmpty()) {
+            Text("Diagnóstico:", color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 220.dp)
+                    .background(Color(0x33000000), RoundedCornerShape(8.dp)).padding(8.dp)
+            ) {
+                logLines.takeLast(12).forEach {
+                    Text(it, color = Color(0xFFB3E5FC), style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                }
+            }
+        }
     }
 }
 

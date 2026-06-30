@@ -34,7 +34,7 @@ enum class MediaKind { IMAGES, VIDEOS, AUDIO, RECEIVED }
 
 private sealed interface TvNav {
     data object Home : TvNav
-    data class Browse(val title: String, val exts: Set<String>?) : TvNav
+    data class Browse(val title: String, val exts: Set<String>?, val flat: Boolean = false) : TvNav
     data class Media(val title: String, val kind: MediaKind) : TvNav
     data object Receive : TvNav
     data object Devices : TvNav
@@ -45,7 +45,26 @@ fun TvAppScreen(vm: AppViewModel) {
     var nav by remember { mutableStateOf<TvNav>(TvNav.Home) }
     val incoming by vm.incoming.collectAsStateWithLifecycle()
     val qsIncoming by vm.qsIncoming.collectAsStateWithLifecycle()
+    val qsReceive by vm.qsReceive.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val activity = context as? android.app.Activity
+
+    // Al empezar a recibir, abrir la pantalla de Recibir automáticamente.
+    LaunchedEffect(qsReceive) {
+        if (qsReceive is QsReceiveState.Receiving && nav != TvNav.Receive) nav = TvNav.Receive
+    }
+
+    // Atrás: subpantalla -> inicio. En inicio, doble atrás para salir.
+    var lastBack by remember { mutableStateOf(0L) }
+    androidx.activity.compose.BackHandler(enabled = nav != TvNav.Home) { nav = TvNav.Home }
+    androidx.activity.compose.BackHandler(enabled = nav == TvNav.Home) {
+        val now = System.currentTimeMillis()
+        if (now - lastBack < 2000) activity?.finish()
+        else {
+            lastBack = now
+            android.widget.Toast.makeText(context, "Pulsa atrás de nuevo para salir", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Box(Modifier.fillMaxSize().background(BgMain)) {
         when (val n = nav) {
@@ -53,11 +72,11 @@ fun TvAppScreen(vm: AppViewModel) {
                 vm = vm,
                 onSend = { nav = TvNav.Browse("Enviar", null) },
                 onReceive = { nav = TvNav.Receive },
-                onBrowse = { title, exts -> nav = TvNav.Browse(title, exts) },
+                onBrowse = { title, exts, flat -> nav = TvNav.Browse(title, exts, flat) },
                 onMedia = { title, kind -> nav = TvNav.Media(title, kind) },
             )
             is TvNav.Browse -> FileBrowserScreen(
-                title = n.title, exts = n.exts,
+                title = n.title, exts = n.exts, flat = n.flat,
                 onPick = { files ->
                     vm.setSelectedFiles(files.map { StorageBrowser.toOutgoing(it) })
                     nav = TvNav.Devices
@@ -112,7 +131,7 @@ private fun TvHome(
     vm: AppViewModel,
     onSend: () -> Unit,
     onReceive: () -> Unit,
-    onBrowse: (String, Set<String>?) -> Unit,
+    onBrowse: (String, Set<String>?, Boolean) -> Unit,
     onMedia: (String, MediaKind) -> Unit,
 ) {
     val qsStatus by vm.qsStatus.collectAsStateWithLifecycle()
@@ -145,12 +164,12 @@ private fun TvHome(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            CatTile(Modifier.weight(1f), "Mis archivos", Icons.Default.Folder) { onBrowse("Mis archivos", null) }
+            CatTile(Modifier.weight(1f), "Mis archivos", Icons.Default.Folder) { onBrowse("Mis archivos", null, false) }
             CatTile(Modifier.weight(1f), "Vídeos", Icons.Default.Movie) { onMedia("Vídeos", MediaKind.VIDEOS) }
             CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image) { onMedia("Imágenes", MediaKind.IMAGES) }
             CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote) { onMedia("Música", MediaKind.AUDIO) }
-            CatTile(Modifier.weight(1f), "APKs", Icons.Default.Android) { onBrowse("APKs", Exts.APK) }
-            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description) { onBrowse("Documentos", Exts.DOC) }
+            CatTile(Modifier.weight(1f), "APKs", Icons.Default.Android) { onBrowse("APKs", Exts.APK, true) }
+            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description) { onBrowse("Documentos", Exts.DOC, true) }
         }
     }
 }
@@ -280,11 +299,33 @@ private fun TvReceive(vm: AppViewModel, onViewReceived: () -> Unit, onBack: () -
         when (val s = qsReceive) {
             is QsReceiveState.Receiving -> {
                 val frac = if (s.total > 0) s.received.toFloat() / s.total else 0f
-                Text("Recibiendo ${s.name}…", color = Color.White)
-                LinearProgressIndicator(progress = { frac }, modifier = Modifier.fillMaxWidth())
+                if (s.name.isNotEmpty()) Text(s.name, color = Color.White, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { frac },
+                    modifier = Modifier.fillMaxWidth().height(10.dp),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text("${formatBytes(s.received)} / ${formatBytes(s.total)}", color = Color(0xCCFFFFFF))
             }
-            is QsReceiveState.Done -> Text("✅ Recibido (${s.paths.size}) de ${s.sender} — pulsa “Ver recibidos”", color = Color.White)
-            is QsReceiveState.Error -> Text("❌ ${s.message}", color = Color(0xFFFFCDD2))
+            is QsReceiveState.Done -> {
+                LinearProgressIndicator(
+                    progress = { 1f },
+                    modifier = Modifier.fillMaxWidth().height(10.dp),
+                    color = Color(0xFF4CAF50),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("✅ Recibido (${s.paths.size}) de ${s.sender} — pulsa “Ver recibidos”", color = Color(0xFFA5D6A7))
+            }
+            is QsReceiveState.Error -> {
+                LinearProgressIndicator(
+                    progress = { 1f },
+                    modifier = Modifier.fillMaxWidth().height(10.dp),
+                    color = Color(0xFFE53935),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("❌ ${s.message}", color = Color(0xFFFFCDD2))
+            }
             else -> Text("Esperando… Comparte por Quick Share desde tu móvil hacia esta TV.", color = Color(0xCCFFFFFF))
         }
         Spacer(Modifier.height(12.dp))

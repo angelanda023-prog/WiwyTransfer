@@ -1,5 +1,6 @@
 package com.wiwy.wiwytransfer
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +15,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wiwy.wiwytransfer.storage.FileEntry
 import com.wiwy.wiwytransfer.storage.StorageBrowser
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /** Explorador de archivos navegable con mando (D-pad) para elegir qué enviar. */
@@ -22,9 +25,14 @@ import java.io.File
 fun FileBrowserScreen(
     title: String = "Elegir archivos",
     exts: Set<String>? = null,
+    flat: Boolean = false,
     onPick: (List<File>) -> Unit,
     onCancel: () -> Unit,
 ) {
+    if (flat && exts != null) {
+        FileScanScreen(title, exts, onPick, onCancel)
+        return
+    }
     var dir by remember { mutableStateOf(StorageBrowser.storageRoot()) }
     val selected = remember { mutableStateListOf<File>() }
     val entries by remember(dir) {
@@ -33,6 +41,11 @@ fun FileBrowserScreen(
         )
     }
     val root = remember { StorageBrowser.storageRoot().absolutePath }
+
+    // Atrás: subir de carpeta; si ya está en la raíz, volver.
+    BackHandler {
+        if (dir.absolutePath != root && dir.parentFile != null) dir = dir.parentFile!! else onCancel()
+    }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -142,6 +155,60 @@ fun ReceivedScreen(refreshKey: Any = Unit) {
                             Icon(Icons.Default.PlayArrow, contentDescription = "Abrir")
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Lista plana de archivos encontrados por tipo (APK, Documentos) en todo el almacenamiento. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FileScanScreen(
+    title: String,
+    exts: Set<String>,
+    onPick: (List<File>) -> Unit,
+    onCancel: () -> Unit,
+) {
+    BackHandler { onCancel() }
+    var loading by remember { mutableStateOf(true) }
+    var results by remember { mutableStateOf<List<FileEntry>>(emptyList()) }
+    val selected = remember { mutableStateListOf<File>() }
+
+    LaunchedEffect(exts) {
+        loading = true
+        results = withContext(Dispatchers.IO) { StorageBrowser.scan(exts) }
+        loading = false
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Button(onClick = { onPick(selected.toList()) }, enabled = selected.isNotEmpty()) {
+                Text("Enviar (${selected.size})")
+            }
+            Spacer(Modifier.width(8.dp))
+            TextButton(onClick = onCancel) { Text("Cancelar") }
+        }
+        Spacer(Modifier.height(8.dp))
+        when {
+            loading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("Buscando en el almacenamiento…")
+            }
+            results.isEmpty() -> Text("No se encontraron archivos de este tipo.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(results, key = { it.file.absolutePath }) { entry ->
+                    BrowserRow(
+                        entry = entry,
+                        checked = selected.contains(entry.file),
+                        onClick = {
+                            if (selected.contains(entry.file)) selected.remove(entry.file)
+                            else selected.add(entry.file)
+                        },
+                    )
                 }
             }
         }

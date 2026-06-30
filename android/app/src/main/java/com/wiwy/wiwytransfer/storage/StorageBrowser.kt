@@ -42,6 +42,28 @@ object StorageBrowser {
     fun toOutgoing(file: File): QsOutgoingFile =
         QsOutgoingFile(name = file.name, size = file.length(), mimeType = mimeOf(file)) { file.inputStream() }
 
+    /** Busca recursivamente archivos por extensión en todo el almacenamiento. */
+    fun scan(exts: Set<String>, max: Int = 800): List<FileEntry> {
+        val out = ArrayList<FileEntry>()
+        fun walk(dir: File, depth: Int) {
+            if (out.size >= max || depth > 7) return
+            val list = dir.listFiles() ?: return
+            for (f in list) {
+                if (out.size >= max) return
+                if (f.isHidden || !f.canRead()) continue
+                if (f.isDirectory) {
+                    // saltar carpetas de sistema/datos de apps (enormes y sin interés)
+                    if (f.name == "Android" || f.name.startsWith(".")) continue
+                    walk(f, depth + 1)
+                } else if (f.extension.lowercase() in exts) {
+                    out.add(FileEntry(f, false, f.name, f.length()))
+                }
+            }
+        }
+        walk(storageRoot(), 0)
+        return out.sortedBy { it.name.lowercase() }
+    }
+
     // ---- Permisos de acceso a archivos ----
 
     fun hasAllFilesAccess(context: Context): Boolean {

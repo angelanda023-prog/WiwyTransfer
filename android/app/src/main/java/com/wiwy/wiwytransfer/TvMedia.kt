@@ -38,6 +38,7 @@ fun MediaListScreen(
     var viewing by remember { mutableStateOf<MediaEntry?>(null) }
 
     viewing?.let { e ->
+        androidx.activity.compose.BackHandler { viewing = null }
         if (e.isImage) ImageViewer(e.uri) { viewing = null }
         else VideoViewer(e.uri) { viewing = null }
         return

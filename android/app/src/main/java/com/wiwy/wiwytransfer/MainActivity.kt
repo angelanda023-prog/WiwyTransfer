@@ -34,7 +34,18 @@ class MainActivity : ComponentActivity() {
             packageManager.hasSystemFeature("android.hardware.type.television")
         setContent {
             MaterialTheme(colorScheme = wiwyColorScheme()) {
-                if (isTv) TvAppScreen(vm) else AppScreen(vm)
+                var showSplash by rememberSaveable { mutableStateOf(true) }
+                androidx.compose.animation.Crossfade(
+                    targetState = showSplash,
+                    animationSpec = androidx.compose.animation.core.tween(450),
+                    label = "splash",
+                ) { splash ->
+                    if (splash) {
+                        WiwySplash(onFinish = { showSplash = false })
+                    } else {
+                        if (isTv) TvAppScreen(vm) else AppScreen(vm)
+                    }
+                }
             }
         }
     }

@@ -61,7 +61,7 @@ fun WiwySplash(onFinish: () -> Unit) {
     // Reloj maestro 0..1 que recorre toda la secuencia (no bloquea el hilo principal).
     val t = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        t.animateTo(1f, tween(durationMillis = 3500, easing = LinearEasing))
+        t.animateTo(1f, tween(durationMillis = 6500, easing = LinearEasing))
         onFinish()
     }
 
@@ -97,7 +97,7 @@ fun WiwySplash(onFinish: () -> Unit) {
             val wPx = with(density) { maxWidth.toPx() }
             val hPx = with(density) { maxHeight.toPx() }
             val center = Offset(wPx / 2f, hPx * 0.40f)
-            val side = min(wPx, hPx) * 0.40f
+            val side = min(wPx, hPx) * 0.28f
             val box = Rect(center.x - side / 2f, center.y - side / 2f, center.x + side / 2f, center.y + side / 2f)
 
             // Partículas generadas una sola vez por tamaño (memoria mínima ~140 objetos).
@@ -141,7 +141,7 @@ fun WiwySplash(onFinish: () -> Unit) {
         val textEase = easeOutCubic(textP)
         Column(
             Modifier
-                .align(BiasAlignment(0f, 0.46f))
+                .align(BiasAlignment(0f, 0.40f))
                 .graphicsLayer {
                     alpha = textP
                     translationY = (1f - textEase) * with(density) { 30.dp.toPx() }

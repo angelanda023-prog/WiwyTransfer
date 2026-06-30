@@ -187,8 +187,8 @@ fun SendTab(vm: AppViewModel, onBrowse: () -> Unit) {
             OutlinedButton(
                 onClick = {
                     if (com.wiwy.wiwytransfer.storage.StorageBrowser.hasAllFilesAccess(context)) onBrowse()
-                    else runCatching {
-                        context.startActivity(com.wiwy.wiwytransfer.storage.StorageBrowser.manageAllFilesIntent(context))
+                    else com.wiwy.wiwytransfer.storage.StorageBrowser.manageAllFilesIntent(context)?.let {
+                        runCatching { context.startActivity(it) }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),

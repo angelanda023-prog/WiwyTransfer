@@ -82,8 +82,11 @@ fun TvAppScreen(vm: AppViewModel) {
     var updateProgress by remember { mutableStateOf(0f) }
     var askFiles by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* las pantallas releen el permiso al recargar */ }
     LaunchedEffect(Unit) {
-        if (!StorageBrowser.hasAllFilesAccess(context)) askFiles = true
+        if (!StorageBrowser.hasAnyFileAccess(context)) askFiles = true
         update = Updater.check(BuildConfig.VERSION_NAME)
     }
 
@@ -157,7 +160,13 @@ fun TvAppScreen(vm: AppViewModel) {
             primaryLabel = "Conceder",
             onPrimary = {
                 askFiles = false
-                runCatching { context.startActivity(StorageBrowser.manageAllFilesIntent(context)) }
+                val intent = StorageBrowser.manageAllFilesIntent(context)
+                if (intent != null) {
+                    runCatching { context.startActivity(intent) }
+                } else {
+                    // TV sin pantalla de "todos los archivos" (p. ej. Hisense): permisos de medios
+                    permLauncher.launch(StorageBrowser.mediaPermissions())
+                }
             },
         )
     }

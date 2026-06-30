@@ -34,6 +34,9 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ApkScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
     var hasAccess by remember { mutableStateOf(StorageBrowser.hasAllFilesAccess(context)) }
     var loading by remember { mutableStateOf(true) }
     var apks by remember { mutableStateOf<List<ApkItem>>(emptyList()) }
@@ -68,7 +71,9 @@ fun ApkScreen(onBack: () -> Unit) {
             Text("Para ver las APK de todas las carpetas, concede acceso a los archivos.",
                 color = Color(0xCCFFFFFF))
             Button(onClick = {
-                runCatching { context.startActivity(StorageBrowser.manageAllFilesIntent(context)) }
+                val intent = StorageBrowser.manageAllFilesIntent(context)
+                if (intent != null) runCatching { context.startActivity(intent) }
+                else permLauncher.launch(StorageBrowser.mediaPermissions())
             }) { Text("Conceder acceso") }
             Spacer(Modifier.height(12.dp))
         }

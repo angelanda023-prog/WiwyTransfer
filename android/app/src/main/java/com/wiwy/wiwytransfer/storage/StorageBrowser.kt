@@ -66,6 +66,7 @@ object StorageBrowser {
 
     // ---- Permisos de acceso a archivos ----
 
+    /** Acceso total al almacenamiento (escaneo recursivo de carpetas). */
     fun hasAllFilesAccess(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
@@ -76,10 +77,45 @@ object StorageBrowser {
         }
     }
 
-    /** Intent para conceder "Acceso a todos los archivos" (API 30+). */
-    fun manageAllFilesIntent(context: Context): Intent =
-        Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+    /** Permisos de medios (runtime) que hay que pedir según la versión de Android. */
+    fun mediaPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                android.Manifest.permission.READ_MEDIA_IMAGES,
+                android.Manifest.permission.READ_MEDIA_VIDEO,
+                android.Manifest.permission.READ_MEDIA_AUDIO,
+            )
+        } else {
+            arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+
+    /** ¿Tenemos al menos acceso de lectura de medios (MediaStore)? */
+    fun hasMediaAccess(context: Context): Boolean {
+        if (hasAllFilesAccess(context)) return true
+        return mediaPermissions().any {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, it) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    /** Acceso suficiente para que la app funcione (todos los archivos O medios). */
+    fun hasAnyFileAccess(context: Context): Boolean =
+        hasAllFilesAccess(context) || hasMediaAccess(context)
+
+    /**
+     * Intent para conceder "Acceso a todos los archivos" (API 30+), o null si el
+     * dispositivo no tiene esa pantalla de Ajustes (p. ej. algunas Android TV).
+     * Prueba primero la pantalla específica de la app y luego la lista global.
+     */
+    fun manageAllFilesIntent(context: Context): Intent? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        val perApp = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
             .setData(Uri.parse("package:${context.packageName}"))
+        if (perApp.resolveActivity(context.packageManager) != null) return perApp
+        val global = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+        if (global.resolveActivity(context.packageManager) != null) return global
+        return null
+    }
 
     // ---- Abrir un archivo recibido con otra app (visor/reproductor) ----
 

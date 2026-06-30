@@ -145,39 +145,53 @@ fun TvAppScreen(vm: AppViewModel) {
     }
     } // CompositionLocalProvider (ripple blanco)
 
-    // Diálogo de permiso de archivos (primera apertura)
+    // Permiso de archivos (primera apertura)
     if (askFiles) {
-        AlertDialog(
-            onDismissRequest = { askFiles = false },
-            title = { Text("Permiso de archivos") },
-            text = { Text("Para buscar e instalar APK y enviar tus archivos, WiwyTransfer necesita acceso a los archivos del dispositivo.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    askFiles = false
-                    runCatching { context.startActivity(StorageBrowser.manageAllFilesIntent(context)) }
-                }) { Text("Conceder") }
+        WiwyDialog(
+            onDismiss = { askFiles = false },
+            icon = Icons.Default.FolderOpen,
+            title = "Permiso de archivos",
+            body = "Para buscar e instalar APK y enviar tus archivos, WiwyTransfer necesita acceso a los archivos del dispositivo.",
+            secondaryLabel = "Ahora no",
+            onSecondary = { askFiles = false },
+            primaryLabel = "Conceder",
+            onPrimary = {
+                askFiles = false
+                runCatching { context.startActivity(StorageBrowser.manageAllFilesIntent(context)) }
             },
-            dismissButton = { TextButton(onClick = { askFiles = false }) { Text("Ahora no") } },
         )
     }
 
-    // Diálogo de actualización OTA
+    // Actualización OTA
     update?.let { upd ->
-        AlertDialog(
-            onDismissRequest = { if (!updating) update = null },
-            title = { Text("Actualización disponible") },
-            text = {
-                if (updating) {
-                    Column {
-                        Text("Descargando ${(updateProgress * 100).toInt()}%…")
-                        LinearProgressIndicator(progress = { updateProgress }, modifier = Modifier.fillMaxWidth())
-                    }
-                } else {
-                    Text("WiwyTransfer ${upd.version} ya está disponible. ¿Actualizar ahora?")
-                }
-            },
-            confirmButton = {
-                if (!updating) TextButton(onClick = {
+        if (updating) {
+            WiwyDialog(
+                onDismiss = {},
+                icon = Icons.Default.CloudDownload,
+                title = "Descargando actualización",
+                body = "${(updateProgress * 100).toInt()}%",
+                dismissOnOutside = false,
+                primaryLabel = "Actualizando…",
+                onPrimary = {},
+                content = {
+                    LinearProgressIndicator(
+                        progress = { updateProgress },
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        color = Color(0xFF2979FF), trackColor = Color(0x33FFFFFF),
+                    )
+                },
+            )
+        } else {
+            WiwyDialog(
+                onDismiss = { update = null },
+                icon = Icons.Default.CloudDownload,
+                title = "Nueva versión disponible",
+                badge = "Versión ${upd.version}",
+                body = "Mejor rendimiento, nuevas funciones y correcciones de errores.",
+                secondaryLabel = "Más tarde",
+                onSecondary = { update = null },
+                primaryLabel = "Actualizar",
+                onPrimary = {
                     updating = true
                     scope.launch {
                         runCatching {
@@ -186,30 +200,49 @@ fun TvAppScreen(vm: AppViewModel) {
                         }
                         updating = false
                     }
-                }) { Text("Actualizar") }
-            },
-            dismissButton = {
-                if (!updating) TextButton(onClick = { update = null }) { Text("Ahora no") }
-            },
+                },
+            )
+        }
+    }
+
+    // Solicitud para recibir (protocolo propio)
+    incoming?.let { req ->
+        WiwyDialog(
+            onDismiss = { vm.respondIncoming(false) },
+            icon = Icons.Default.Download,
+            title = "¿Deseas recibir este archivo?",
+            body = "${req.header.sender}\n${req.header.files.size} archivo(s) · ${formatBytes(req.header.totalBytes)}",
+            secondaryLabel = "Rechazar",
+            onSecondary = { vm.respondIncoming(false) },
+            primaryLabel = "Permitir",
+            onPrimary = { vm.respondIncoming(true) },
         )
     }
 
-    incoming?.let { req ->
-        AlertDialog(
-            onDismissRequest = { vm.respondIncoming(false) },
-            title = { Text("Solicitud de transferencia") },
-            text = { Text("${req.header.sender} quiere enviarte ${req.header.files.size} archivo(s) (${formatBytes(req.header.totalBytes)}).") },
-            confirmButton = { TextButton(onClick = { vm.respondIncoming(true) }) { Text("Aceptar") } },
-            dismissButton = { TextButton(onClick = { vm.respondIncoming(false) }) { Text("Rechazar") } },
+    // Solicitud para recibir (Quick Share)
+    qsIncoming?.let { req ->
+        WiwyDialog(
+            onDismiss = { vm.respondQs(false) },
+            icon = Icons.Default.Download,
+            title = "¿Deseas recibir este archivo?",
+            body = "${req.sender}\n${req.files.size} archivo(s) · ${formatBytes(req.totalBytes)}" +
+                (req.pin?.let { "\nPIN: $it" } ?: ""),
+            secondaryLabel = "Rechazar",
+            onSecondary = { vm.respondQs(false) },
+            primaryLabel = "Permitir",
+            onPrimary = { vm.respondQs(true) },
         )
     }
-    qsIncoming?.let { req ->
-        AlertDialog(
-            onDismissRequest = { vm.respondQs(false) },
-            title = { Text("Quick Share") },
-            text = { Text("${req.sender} quiere enviarte ${req.files.size} archivo(s) (${formatBytes(req.totalBytes)})." + (req.pin?.let { "\nPIN: $it" } ?: "")) },
-            confirmButton = { TextButton(onClick = { vm.respondQs(true) }) { Text("Aceptar") } },
-            dismissButton = { TextButton(onClick = { vm.respondQs(false) }) { Text("Rechazar") } },
+
+    // Transferencia completada
+    (qsReceive as? QsReceiveState.Done)?.let { done ->
+        WiwyDialog(
+            onDismiss = { vm.resetQsReceive() },
+            icon = Icons.Default.Check,
+            title = "¡Transferencia completada!",
+            body = "${done.paths.size} archivo(s) recibido(s) correctamente.",
+            primaryLabel = "Aceptar",
+            onPrimary = { vm.resetQsReceive() },
         )
     }
 }

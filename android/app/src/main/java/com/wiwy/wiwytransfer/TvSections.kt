@@ -89,6 +89,7 @@ fun TvSections(vm: AppViewModel, initial: Section, onSend: (List<QsOutgoingFile>
     var grid by remember { mutableStateOf(false) }
     var selectMode by remember { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<String>() } // por key
+    var confirmDelete by remember { mutableStateOf(false) }
     val df = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
     fun clearSelection() { selectMode = false; selected.clear() }
@@ -165,7 +166,7 @@ fun TvSections(vm: AppViewModel, initial: Section, onSend: (List<QsOutgoingFile>
                         if (files.isNotEmpty()) onSend(files)
                     }, enabled = selected.isNotEmpty()) { Icon(Icons.Default.Send, null); Spacer(Modifier.width(6.dp)); Text("Enviar") }
                     Spacer(Modifier.width(10.dp))
-                    OutlinedButton(onClick = { deleteSelected() }, enabled = selected.isNotEmpty()) {
+                    OutlinedButton(onClick = { confirmDelete = true }, enabled = selected.isNotEmpty()) {
                         Icon(Icons.Default.Delete, null); Spacer(Modifier.width(6.dp)); Text("Eliminar")
                     }
                     Spacer(Modifier.width(10.dp))
@@ -215,6 +216,21 @@ fun TvSections(vm: AppViewModel, initial: Section, onSend: (List<QsOutgoingFile>
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        val n = selected.size
+        WiwyDialog(
+            onDismiss = { confirmDelete = false },
+            icon = Icons.Default.Delete,
+            title = "¿Eliminar $n archivo(s)?",
+            body = "Se eliminarán permanentemente de tu dispositivo.",
+            secondaryLabel = "Rechazar",
+            onSecondary = { confirmDelete = false },
+            primaryLabel = "Permitir",
+            accent = Color(0xFFE53935),
+            onPrimary = { confirmDelete = false; deleteSelected() },
+        )
     }
 }
 

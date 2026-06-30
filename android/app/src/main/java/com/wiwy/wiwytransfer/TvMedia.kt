@@ -40,6 +40,7 @@ fun MediaListScreen(
     var viewing by remember { mutableStateOf<MediaEntry?>(null) }
     var localEntries by remember(entries) { mutableStateOf(entries) }
     val selected = remember { mutableStateListOf<MediaEntry>() }
+    var confirmDelete by remember { mutableStateOf(false) }
 
     val deleteLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
@@ -73,7 +74,7 @@ fun MediaListScreen(
                 color = Color.White, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f))
             if (selected.isNotEmpty()) {
-                IconButton(onClick = { deleteSelected() }) {
+                IconButton(onClick = { confirmDelete = true }) {
                     Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFFF8A80))
                 }
             }
@@ -97,6 +98,21 @@ fun MediaListScreen(
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        val n = selected.size
+        WiwyDialog(
+            onDismiss = { confirmDelete = false },
+            icon = Icons.Default.Delete,
+            title = "¿Eliminar $n archivo(s)?",
+            body = "Se eliminarán permanentemente de tu dispositivo.",
+            secondaryLabel = "Rechazar",
+            onSecondary = { confirmDelete = false },
+            primaryLabel = "Permitir",
+            accent = Color(0xFFE53935),
+            onPrimary = { confirmDelete = false; deleteSelected() },
+        )
     }
 }
 

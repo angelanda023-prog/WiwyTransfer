@@ -297,6 +297,33 @@ abstract class NearbyConnection(protected val socket: Socket) {
         }
     }
 
+    /** Envía la trama de desconexión sin cerrar el socket. */
+    protected fun sendDisconnection() {
+        val frame = OfflineFrame.newBuilder()
+            .setVersion(OfflineVersion.V1)
+            .setV1(
+                ConnV1Frame.newBuilder()
+                    .setType(ConnFrameType.DISCONNECTION)
+                    .setDisconnection(DisconnectionFrame.newBuilder())
+            )
+            .build()
+        runCatching {
+            if (encryptionDone) encryptAndSendOfflineFrame(frame) else sendFrame(frame.toByteArray())
+        }
+    }
+
+    /**
+     * Cierre ordenado tras enviar: media-cierre de salida (FIN) y seguir leyendo
+     * para drenar lo que mande el otro lado y evitar un RST que rompa la recepción.
+     */
+    protected fun finishSendingGracefully() {
+        runCatching {
+            socket.soTimeout = 8000
+            socket.shutdownOutput()
+        }
+        // El bucle de lectura seguirá hasta que el otro lado cierre (EOF) o se agote el tiempo.
+    }
+
     protected fun sendDisconnectionAndDisconnect() {
         val frame = OfflineFrame.newBuilder()
             .setVersion(OfflineVersion.V1)

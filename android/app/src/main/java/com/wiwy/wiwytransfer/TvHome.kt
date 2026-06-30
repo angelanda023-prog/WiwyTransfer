@@ -37,6 +37,7 @@ private sealed interface TvNav {
     data class Browse(val title: String, val exts: Set<String>?, val flat: Boolean = false) : TvNav
     data class Media(val title: String, val kind: MediaKind) : TvNav
     data class FilesByExt(val title: String, val exts: Set<String>) : TvNav
+    data object Apk : TvNav
     data object Receive : TvNav
     data object Devices : TvNav
 }
@@ -76,6 +77,7 @@ fun TvAppScreen(vm: AppViewModel) {
                 onBrowse = { title, exts, flat -> nav = TvNav.Browse(title, exts, flat) },
                 onMedia = { title, kind -> nav = TvNav.Media(title, kind) },
                 onFilesByExt = { title, exts -> nav = TvNav.FilesByExt(title, exts) },
+                onApk = { nav = TvNav.Apk },
             )
             is TvNav.Browse -> FileBrowserScreen(
                 title = n.title, exts = n.exts, flat = n.flat,
@@ -114,6 +116,7 @@ fun TvAppScreen(vm: AppViewModel) {
                     onBack = { nav = TvNav.Home },
                 )
             }
+            TvNav.Apk -> ApkScreen { nav = TvNav.Home }
             TvNav.Receive -> TvReceive(vm, onViewReceived = { nav = TvNav.Media("Recibidos", MediaKind.RECEIVED) }) { nav = TvNav.Home }
             TvNav.Devices -> TvDevices(vm) { nav = TvNav.Home }
         }
@@ -147,6 +150,7 @@ private fun TvHome(
     onBrowse: (String, Set<String>?, Boolean) -> Unit,
     onMedia: (String, MediaKind) -> Unit,
     onFilesByExt: (String, Set<String>) -> Unit,
+    onApk: () -> Unit,
 ) {
     val qsStatus by vm.qsStatus.collectAsStateWithLifecycle()
 
@@ -182,7 +186,7 @@ private fun TvHome(
             CatTile(Modifier.weight(1f), "Vídeos", Icons.Default.Movie) { onMedia("Vídeos", MediaKind.VIDEOS) }
             CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image) { onMedia("Imágenes", MediaKind.IMAGES) }
             CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote) { onMedia("Música", MediaKind.AUDIO) }
-            CatTile(Modifier.weight(1f), "APK", Icons.Default.Android) { onFilesByExt("APK", Exts.APK) }
+            CatTile(Modifier.weight(1f), "APK", Icons.Default.Android) { onApk() }
             CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description) { onFilesByExt("Documentos", Exts.DOC) }
         }
     }

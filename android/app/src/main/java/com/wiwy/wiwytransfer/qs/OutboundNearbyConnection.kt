@@ -270,9 +270,10 @@ class OutboundNearbyConnection(
                     encryptAndSendOfflineFrame(wrapFile(eof))
                 }
             }
-            QsDebug.log("✅ Todos los archivos enviados, desconectando")
+            QsDebug.log("✅ Todos enviados, cierre ordenado")
+            sendDisconnection()
             delegate.onFinished()
-            sendDisconnectionAndDisconnect()
+            finishSendingGracefully()
         } catch (e: Exception) {
             fail("${e.javaClass.simpleName}: ${e.message}")
         }

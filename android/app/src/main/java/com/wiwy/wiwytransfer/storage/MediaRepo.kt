@@ -42,6 +42,15 @@ object MediaRepo {
     fun downloads(context: Context): List<MediaEntry> =
         query(context, MediaStore.Downloads.EXTERNAL_CONTENT_URI, null, null)
 
+    /** Busca por extensión en MediaStore.Files (sin permiso de "todos los archivos"). */
+    fun filesByExtension(context: Context, exts: Set<String>): List<MediaEntry> {
+        @Suppress("DEPRECATION")
+        val collection = MediaStore.Files.getContentUri("external")
+        val sel = exts.joinToString(" OR ") { "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?" }
+        val args = exts.map { "%.$it" }.toTypedArray()
+        return query(context, collection, sel, args)
+    }
+
     private fun query(context: Context, collection: Uri, selection: String?, args: Array<String>?): List<MediaEntry> {
         val out = ArrayList<MediaEntry>()
         val proj = arrayOf(

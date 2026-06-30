@@ -36,6 +36,7 @@ private sealed interface TvNav {
     data object Home : TvNav
     data class Browse(val title: String, val exts: Set<String>?, val flat: Boolean = false) : TvNav
     data class Media(val title: String, val kind: MediaKind) : TvNav
+    data class FilesByExt(val title: String, val exts: Set<String>) : TvNav
     data object Receive : TvNav
     data object Devices : TvNav
 }
@@ -74,6 +75,7 @@ fun TvAppScreen(vm: AppViewModel) {
                 onReceive = { nav = TvNav.Receive },
                 onBrowse = { title, exts, flat -> nav = TvNav.Browse(title, exts, flat) },
                 onMedia = { title, kind -> nav = TvNav.Media(title, kind) },
+                onFilesByExt = { title, exts -> nav = TvNav.FilesByExt(title, exts) },
             )
             is TvNav.Browse -> FileBrowserScreen(
                 title = n.title, exts = n.exts, flat = n.flat,
@@ -92,6 +94,17 @@ fun TvAppScreen(vm: AppViewModel) {
                         MediaKind.RECEIVED -> MediaRepo.received(context)
                     }
                 }
+                MediaListScreen(
+                    title = n.title, entries = entries,
+                    onSend = { e ->
+                        vm.setSelectedFiles(listOf(MediaRepo.toOutgoing(context, e)))
+                        nav = TvNav.Devices
+                    },
+                    onBack = { nav = TvNav.Home },
+                )
+            }
+            is TvNav.FilesByExt -> {
+                val entries = remember(n) { MediaRepo.filesByExtension(context, n.exts) }
                 MediaListScreen(
                     title = n.title, entries = entries,
                     onSend = { e ->
@@ -133,6 +146,7 @@ private fun TvHome(
     onReceive: () -> Unit,
     onBrowse: (String, Set<String>?, Boolean) -> Unit,
     onMedia: (String, MediaKind) -> Unit,
+    onFilesByExt: (String, Set<String>) -> Unit,
 ) {
     val qsStatus by vm.qsStatus.collectAsStateWithLifecycle()
 
@@ -168,8 +182,8 @@ private fun TvHome(
             CatTile(Modifier.weight(1f), "Vídeos", Icons.Default.Movie) { onMedia("Vídeos", MediaKind.VIDEOS) }
             CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image) { onMedia("Imágenes", MediaKind.IMAGES) }
             CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote) { onMedia("Música", MediaKind.AUDIO) }
-            CatTile(Modifier.weight(1f), "APKs", Icons.Default.Android) { onBrowse("APKs", Exts.APK, true) }
-            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description) { onBrowse("Documentos", Exts.DOC, true) }
+            CatTile(Modifier.weight(1f), "APK", Icons.Default.Android) { onFilesByExt("APK", Exts.APK) }
+            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description) { onFilesByExt("Documentos", Exts.DOC) }
         }
     }
 }

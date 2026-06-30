@@ -39,8 +39,11 @@ object ApkRepo {
     }
 
     /** Icono de la APK (solo si tenemos su ruta de archivo). */
-    fun icon(context: Context, item: ApkItem): Drawable? {
-        val path = item.file?.absolutePath ?: return null
+    fun icon(context: Context, item: ApkItem): Drawable? =
+        item.file?.let { iconFromFile(context, it) }
+
+    fun iconFromFile(context: Context, file: File): Drawable? {
+        val path = file.absolutePath
         val pm = context.packageManager
         val info = pm.getPackageArchiveInfo(path, 0) ?: return null
         info.applicationInfo?.apply { sourceDir = path; publicSourceDir = path }

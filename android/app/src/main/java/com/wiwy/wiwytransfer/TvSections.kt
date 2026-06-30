@@ -20,9 +20,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +66,7 @@ private class SectionItem(
     val outgoing: (() -> QsOutgoingFile)?,
     val uri: Uri?,         // medios: para borrar con confirmación del sistema
     val deleteFile: (() -> Unit)?, // archivos/apk: borrado directo
+    val apkFile: File? = null, // si es APK: para cargar su icono real
 )
 
 private val DOC_EXTS = setOf("pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "pptx", "zip", "rar")
@@ -245,13 +249,7 @@ private fun RowItem(item: SectionItem, df: SimpleDateFormat, checked: Boolean, o
         border = if (focused) BorderStroke(2.dp, Color.White) else null,
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (item.thumbUri != null) {
-                AsyncImage(model = item.thumbUri, contentDescription = null,
-                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black),
-                    contentScale = ContentScale.Crop)
-            } else {
-                Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.size(40.dp))
-            }
+            LeadingVisual(item, 44.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -276,18 +274,40 @@ private fun GridItem(item: SectionItem, checked: Boolean, onClick: () -> Unit, o
         border = if (focused) BorderStroke(2.dp, Color.White) else null,
     ) {
         Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (item.thumbUri != null) {
-                AsyncImage(model = item.thumbUri, contentDescription = null,
-                    modifier = Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color.Black),
-                    contentScale = ContentScale.Crop)
-            } else {
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.size(48.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                if (item.thumbUri != null) {
+                    AsyncImage(model = item.thumbUri, contentDescription = null,
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)).background(Color.Black),
+                        contentScale = ContentScale.Crop)
+                } else {
+                    LeadingVisual(item, 56.dp)
                 }
             }
             Spacer(Modifier.height(6.dp))
             Text(item.name, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+@Composable
+private fun LeadingVisual(item: SectionItem, size: androidx.compose.ui.unit.Dp) {
+    val context = LocalContext.current
+    when {
+        item.apkFile != null -> {
+            val bmp by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, item.key) {
+                value = withContext(Dispatchers.IO) {
+                    ApkRepo.iconFromFile(context, item.apkFile)?.toBitmap(96, 96)?.asImageBitmap()
+                }
+            }
+            if (bmp != null) Image(bitmap = bmp!!, contentDescription = null, modifier = Modifier.size(size))
+            else Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.size(size))
+        }
+        item.thumbUri != null -> AsyncImage(
+            model = item.thumbUri, contentDescription = null,
+            modifier = Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(Color.Black),
+            contentScale = ContentScale.Crop,
+        )
+        else -> Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.size(size))
     }
 }
 
@@ -344,6 +364,7 @@ private fun buildItems(context: android.content.Context, section: Section, dir: 
                 outgoing = ({ MediaRepo.toOutgoing(context, com.wiwy.wiwytransfer.storage.MediaEntry(a.uri, a.name, a.size, "application/vnd.android.package-archive")) }),
                 uri = if (a.file == null) a.uri else null,
                 deleteFile = a.file?.let { f -> ({ f.delete(); Unit }) },
+                apkFile = a.file,
             )
         }
     }

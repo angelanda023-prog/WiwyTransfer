@@ -106,8 +106,7 @@ private fun MediaRow(e: MediaEntry, checked: Boolean, onClick: () -> Unit, onLon
     var focused by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth()
-            .onFocusChanged { focused = it.isFocused }
-            .combinedClickable(onClick = onClick, onLongClick = onLong),
+            .tvSelectable(onClick = onClick, onLongClick = onLong, onFocusChanged = { focused = it }),
         shape = RoundedCornerShape(10.dp),
         color = if (checked) Color(0xFF1B5E20) else if (focused) Color(0xFF0D47A1) else Color(0xFF1565C0),
         border = if (focused) BorderStroke(2.dp, Color.White) else null,

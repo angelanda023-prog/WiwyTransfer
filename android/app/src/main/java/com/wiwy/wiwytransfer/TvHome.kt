@@ -19,11 +19,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wiwy.wiwytransfer.storage.MediaRepo
 import com.wiwy.wiwytransfer.storage.StorageBrowser
+import kotlinx.coroutines.launch
 
-private val BgTop = Color(0xFF0A2A4A)
-private val BgMain = Color(0xFF1976D2)
-private val TileBg = Color(0x33FFFFFF)
-private val TileFocus = Color(0xFF0D47A1)
+private val BgTop = Color(0xFF1B2227)   // gris Oxford (barra superior)
+private val BgMain = Color(0xFF2B3640)  // gris Oxford (fondo)
+private val TileBg = Color(0xFF1565C0)  // tarjeta azul
+private val TileFocus = Color(0xFF42A5F5) // azul claro al enfocar
 
 private object Exts {
     val DOC = setOf("pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "pptx", "zip", "rar")
@@ -42,6 +43,7 @@ private sealed interface TvNav {
     data object Devices : TvNav
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TvAppScreen(vm: AppViewModel) {
     var nav by remember { mutableStateOf<TvNav>(TvNav.Home) }
@@ -68,6 +70,18 @@ fun TvAppScreen(vm: AppViewModel) {
         }
     }
 
+    // OTA + permiso de archivos al inicio
+    var update by remember { mutableStateOf<Updater.Update?>(null) }
+    var updating by remember { mutableStateOf(false) }
+    var updateProgress by remember { mutableStateOf(0f) }
+    var askFiles by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        if (!StorageBrowser.hasAllFilesAccess(context)) askFiles = true
+        update = Updater.check(BuildConfig.VERSION_NAME)
+    }
+
+    CompositionLocalProvider(LocalRippleConfiguration provides RippleConfiguration(color = Color.White)) {
     Box(Modifier.fillMaxSize().background(BgMain)) {
         when (val n = nav) {
             TvNav.Home -> TvHome(
@@ -120,6 +134,56 @@ fun TvAppScreen(vm: AppViewModel) {
             TvNav.Receive -> TvReceive(vm, onViewReceived = { nav = TvNav.Media("Recibidos", MediaKind.RECEIVED) }) { nav = TvNav.Home }
             TvNav.Devices -> TvDevices(vm) { nav = TvNav.Home }
         }
+    }
+    } // CompositionLocalProvider (ripple blanco)
+
+    // Diálogo de permiso de archivos (primera apertura)
+    if (askFiles) {
+        AlertDialog(
+            onDismissRequest = { askFiles = false },
+            title = { Text("Permiso de archivos") },
+            text = { Text("Para buscar e instalar APK y enviar tus archivos, WiwyTransfer necesita acceso a los archivos del dispositivo.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    askFiles = false
+                    runCatching { context.startActivity(StorageBrowser.manageAllFilesIntent(context)) }
+                }) { Text("Conceder") }
+            },
+            dismissButton = { TextButton(onClick = { askFiles = false }) { Text("Ahora no") } },
+        )
+    }
+
+    // Diálogo de actualización OTA
+    update?.let { upd ->
+        AlertDialog(
+            onDismissRequest = { if (!updating) update = null },
+            title = { Text("Actualización disponible") },
+            text = {
+                if (updating) {
+                    Column {
+                        Text("Descargando ${(updateProgress * 100).toInt()}%…")
+                        LinearProgressIndicator(progress = { updateProgress }, modifier = Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Text("WiwyTransfer ${upd.version} ya está disponible. ¿Actualizar ahora?")
+                }
+            },
+            confirmButton = {
+                if (!updating) TextButton(onClick = {
+                    updating = true
+                    scope.launch {
+                        runCatching {
+                            val apk = Updater.download(context, upd) { p -> updateProgress = p }
+                            Updater.install(context, apk)
+                        }
+                        updating = false
+                    }
+                }) { Text("Actualizar") }
+            },
+            dismissButton = {
+                if (!updating) TextButton(onClick = { update = null }) { Text("Ahora no") }
+            },
+        )
     }
 
     incoming?.let { req ->
@@ -270,20 +334,6 @@ private fun TvDevices(vm: AppViewModel, onBack: () -> Unit) {
         }
         qsPeers.forEach { p -> DeviceRow(p.name, "Quick Share") { vm.sendQs(p) } }
         peers.forEach { p -> DeviceRow(p.displayName, "WiwyTransfer") { vm.sendTo(p) } }
-
-        Spacer(Modifier.height(12.dp))
-        val logLines by com.wiwy.wiwytransfer.qs.QsDebug.lines.collectAsStateWithLifecycle()
-        if (logLines.isNotEmpty()) {
-            Text("Diagnóstico:", color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = 220.dp)
-                    .background(Color(0x33000000), RoundedCornerShape(8.dp)).padding(8.dp)
-            ) {
-                logLines.takeLast(12).forEach {
-                    Text(it, color = Color(0xFFB3E5FC), style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                }
-            }
-        }
     }
 }
 
@@ -359,19 +409,6 @@ private fun TvReceive(vm: AppViewModel, onViewReceived: () -> Unit, onBack: () -
                 Text("❌ ${s.message}", color = Color(0xFFFFCDD2))
             }
             else -> Text("Esperando… Comparte por Quick Share desde tu móvil hacia esta TV.", color = Color(0xCCFFFFFF))
-        }
-        Spacer(Modifier.height(12.dp))
-        val logLines by com.wiwy.wiwytransfer.qs.QsDebug.lines.collectAsStateWithLifecycle()
-        if (logLines.isNotEmpty()) {
-            Text("Diagnóstico:", color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
-            Column(
-                Modifier.fillMaxWidth().heightIn(max = 220.dp)
-                    .background(Color(0x33000000), RoundedCornerShape(8.dp)).padding(8.dp)
-            ) {
-                logLines.takeLast(12).forEach {
-                    Text(it, color = Color(0xFFB3E5FC), style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                }
-            }
         }
     }
 }

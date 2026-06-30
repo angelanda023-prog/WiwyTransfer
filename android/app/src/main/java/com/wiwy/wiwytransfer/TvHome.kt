@@ -223,9 +223,13 @@ private fun TvHome(
             Modifier.fillMaxWidth().background(BgTop).padding(horizontal = 28.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.Send, contentDescription = null, tint = Color.White)
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = R.mipmap.ic_launcher),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+            )
             Spacer(Modifier.width(12.dp))
-            Text("WiwyTransfer — TV", color = Color.White,
+            Text("WiwyTransfer", color = Color.White,
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f))
             Text(qsStatus, color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
@@ -310,7 +314,6 @@ private fun TvDevices(vm: AppViewModel, onBack: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Enviar a…", color = Color.White, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f))
-            TextButton(onClick = onBack) { Text("Volver", color = Color.White) }
         }
         Text("${selected.size} archivo(s) · ${formatBytes(selected.sumOf { it.size })}",
             color = Color(0xCCFFFFFF))
@@ -371,8 +374,6 @@ private fun TvReceive(vm: AppViewModel, onViewReceived: () -> Unit, onBack: () -
             Text("Recibir", color = Color.White, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f))
             Button(onClick = onViewReceived) { Text("Ver recibidos") }
-            Spacer(Modifier.width(8.dp))
-            TextButton(onClick = onBack) { Text("Volver", color = Color.White) }
         }
         Spacer(Modifier.height(8.dp))
         Text("Visible como: $name", color = Color.White, style = MaterialTheme.typography.titleMedium)

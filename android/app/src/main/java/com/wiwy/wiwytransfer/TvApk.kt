@@ -1,14 +1,18 @@
 package com.wiwy.wiwytransfer
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,22 +38,30 @@ fun ApkScreen(onBack: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var apks by remember { mutableStateOf<List<ApkItem>>(emptyList()) }
     var reload by remember { mutableStateOf(0) }
+    val selected = remember { mutableStateListOf<ApkItem>() }
 
     LaunchedEffect(reload) {
         hasAccess = StorageBrowser.hasAllFilesAccess(context)
         loading = true
         apks = withContext(Dispatchers.IO) { ApkRepo.list(context) }
+        selected.clear()
         loading = false
     }
 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("APK", color = Color.White, style = MaterialTheme.typography.titleLarge,
+            Text(if (selected.isEmpty()) "APK" else "${selected.size} seleccionada(s)",
+                color = Color.White, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f))
-            IconButton(onClick = { reload++ }) {
-                Icon(Icons.Default.Download, contentDescription = "Recargar", tint = Color.White)
+            if (selected.isNotEmpty()) {
+                IconButton(onClick = {
+                    selected.toList().forEach { ApkRepo.delete(context, it) }
+                    reload++
+                }) { Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFFF8A80)) }
             }
-            TextButton(onClick = onBack) { Text("Volver", color = Color.White) }
+            IconButton(onClick = { reload++ }) {
+                Icon(Icons.Default.Refresh, contentDescription = "Recargar", tint = Color.White)
+            }
         }
 
         if (!hasAccess) {
@@ -69,16 +81,26 @@ fun ApkScreen(onBack: () -> Unit) {
             apks.isEmpty() -> Text("No se encontraron APK.", color = Color(0xCCFFFFFF))
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(apks, key = { it.uri.toString() }) { apk ->
-                    ApkRow(apk) { ApkRepo.install(context, apk) }
+                    ApkRow(
+                        apk = apk,
+                        checked = selected.contains(apk),
+                        selecting = selected.isNotEmpty(),
+                        onClick = {
+                            if (selected.isNotEmpty()) {
+                                if (selected.contains(apk)) selected.remove(apk) else selected.add(apk)
+                            } else ApkRepo.install(context, apk)
+                        },
+                        onLong = { if (!selected.contains(apk)) selected.add(apk) },
+                    )
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ApkRow(apk: ApkItem, onClick: () -> Unit) {
+private fun ApkRow(apk: ApkItem, checked: Boolean, selecting: Boolean, onClick: () -> Unit, onLong: () -> Unit) {
     val context = LocalContext.current
     var focused by remember { mutableStateOf(false) }
     val icon by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, apk) {
@@ -87,10 +109,11 @@ private fun ApkRow(apk: ApkItem, onClick: () -> Unit) {
         }
     }
     Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused }
+            .combinedClickable(onClick = onClick, onLongClick = onLong),
         shape = RoundedCornerShape(10.dp),
-        color = if (focused) Color(0xFF0D47A1) else Color(0x33FFFFFF),
+        color = if (checked) Color(0xFF1B5E20) else if (focused) Color(0xFF0D47A1) else Color(0xFF1565C0),
         border = if (focused) BorderStroke(2.dp, Color.White) else null,
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -103,9 +126,10 @@ private fun ApkRow(apk: ApkItem, onClick: () -> Unit) {
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(apk.name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(formatBytes(apk.size) + " · pulsa para instalar",
-                    color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+                Text(formatBytes(apk.size) + (if (selecting) "" else " · clic para instalar · mantén para seleccionar"),
+                    color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall, maxLines = 1)
             }
+            if (checked) Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
         }
     }
 }

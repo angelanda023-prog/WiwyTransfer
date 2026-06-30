@@ -55,8 +55,6 @@ fun FileBrowserScreen(
                 onClick = { onPick(selected.toList()) },
                 enabled = selected.isNotEmpty(),
             ) { Text("Enviar (${selected.size})") }
-            Spacer(Modifier.width(8.dp))
-            TextButton(onClick = onCancel) { Text("Cancelar") }
         }
         Text(dir.absolutePath, style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -187,8 +185,6 @@ fun FileScanScreen(
             Button(onClick = { onPick(selected.toList()) }, enabled = selected.isNotEmpty()) {
                 Text("Enviar (${selected.size})")
             }
-            Spacer(Modifier.width(8.dp))
-            TextButton(onClick = onCancel) { Text("Cancelar") }
         }
         Spacer(Modifier.height(8.dp))
         when {

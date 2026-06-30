@@ -47,6 +47,12 @@ object ApkRepo {
         return runCatching { info.applicationInfo?.loadIcon(pm) }.getOrNull()
     }
 
+    /** Borra una APK (archivo o vía MediaStore). Devuelve true si se borró. */
+    fun delete(context: Context, item: ApkItem): Boolean {
+        item.file?.let { return runCatching { it.delete() }.getOrDefault(false) }
+        return runCatching { context.contentResolver.delete(item.uri, null, null) > 0 }.getOrDefault(false)
+    }
+
     fun install(context: Context, item: ApkItem) {
         val intent = Intent(Intent.ACTION_VIEW)
             .setDataAndType(item.uri, "application/vnd.android.package-archive")

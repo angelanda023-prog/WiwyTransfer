@@ -3,6 +3,7 @@ package com.wiwy.wiwytransfer
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,8 +27,8 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.wiwy.wiwytransfer.storage.MediaEntry
 
-/** Lista de medios (categoría o recibidos) con ver y enviar. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Lista de medios (categoría o recibidos) con ver, enviar, selección múltiple y borrar. */
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MediaListScreen(
     title: String,
@@ -35,7 +36,29 @@ fun MediaListScreen(
     onSend: (MediaEntry) -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     var viewing by remember { mutableStateOf<MediaEntry?>(null) }
+    var localEntries by remember(entries) { mutableStateOf(entries) }
+    val selected = remember { mutableStateListOf<MediaEntry>() }
+
+    val deleteLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            localEntries = localEntries.filterNot { selected.contains(it) }
+        }
+        selected.clear()
+    }
+
+    fun deleteSelected() {
+        val sender = com.wiwy.wiwytransfer.storage.MediaRepo.deleteRequest(context, selected.map { it.uri })
+        if (sender != null) {
+            deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build())
+        } else {
+            localEntries = localEntries.filterNot { selected.contains(it) }
+            selected.clear()
+        }
+    }
 
     viewing?.let { e ->
         androidx.activity.compose.BackHandler { viewing = null }
@@ -46,33 +69,47 @@ fun MediaListScreen(
 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, color = Color.White, style = MaterialTheme.typography.titleLarge,
+            Text(if (selected.isEmpty()) title else "${selected.size} seleccionado(s)",
+                color = Color.White, style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f))
-            TextButton(onClick = onBack) { Text("Volver", color = Color.White) }
+            if (selected.isNotEmpty()) {
+                IconButton(onClick = { deleteSelected() }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFFF8A80))
+                }
+            }
         }
-        if (entries.isEmpty()) {
+        if (localEntries.isEmpty()) {
             Text("No hay archivos.", color = Color(0xCCFFFFFF))
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(entries, key = { it.uri.toString() }) { e ->
-                    MediaRow(e, onOpen = {
-                        if (e.isImage || e.isVideo) viewing = e else onSend(e)
-                    }, onSend = { onSend(e) })
+                items(localEntries, key = { it.uri.toString() }) { e ->
+                    MediaRow(
+                        e = e,
+                        checked = selected.contains(e),
+                        onClick = {
+                            if (selected.isNotEmpty()) {
+                                if (selected.contains(e)) selected.remove(e) else selected.add(e)
+                            } else if (e.isImage || e.isVideo) viewing = e else onSend(e)
+                        },
+                        onLong = { if (!selected.contains(e)) selected.add(e) },
+                        onSend = { onSend(e) },
+                    )
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun MediaRow(e: MediaEntry, onOpen: () -> Unit, onSend: () -> Unit) {
+private fun MediaRow(e: MediaEntry, checked: Boolean, onClick: () -> Unit, onLong: () -> Unit, onSend: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Surface(
-        onClick = onOpen,
-        modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
+        modifier = Modifier.fillMaxWidth()
+            .onFocusChanged { focused = it.isFocused }
+            .combinedClickable(onClick = onClick, onLongClick = onLong),
         shape = RoundedCornerShape(10.dp),
-        color = if (focused) Color(0xFF0D47A1) else Color(0x33FFFFFF),
+        color = if (checked) Color(0xFF1B5E20) else if (focused) Color(0xFF0D47A1) else Color(0xFF1565C0),
         border = if (focused) BorderStroke(2.dp, Color.White) else null,
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -87,11 +124,14 @@ private fun MediaRow(e: MediaEntry, onOpen: () -> Unit, onSend: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(e.name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(formatBytes(e.size) + (if (e.isImage || e.isVideo) " · pulsa para ver" else ""),
-                    color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+                Text(formatBytes(e.size), color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onSend) {
-                Icon(Icons.Default.Send, contentDescription = "Enviar", tint = Color.White)
+            if (checked) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+            } else {
+                IconButton(onClick = onSend) {
+                    Icon(Icons.Default.Send, contentDescription = "Enviar", tint = Color.White)
+                }
             }
         }
     }

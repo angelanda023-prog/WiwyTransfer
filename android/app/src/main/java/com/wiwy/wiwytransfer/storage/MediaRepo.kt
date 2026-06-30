@@ -86,4 +86,18 @@ object MediaRepo {
         QsOutgoingFile(entry.name, entry.size, entry.mime) {
             context.contentResolver.openInputStream(entry.uri) ?: error("No se pudo abrir ${entry.name}")
         }
+
+    /**
+     * Borra los [uris]. En API 30+ devuelve un IntentSender para que el sistema
+     * pida confirmación (hay que lanzarlo); en versiones anteriores borra directo.
+     */
+    fun deleteRequest(context: Context, uris: List<android.net.Uri>): android.content.IntentSender? {
+        if (uris.isEmpty()) return null
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            MediaStore.createDeleteRequest(context.contentResolver, uris).intentSender
+        } else {
+            uris.forEach { runCatching { context.contentResolver.delete(it, null, null) } }
+            null
+        }
+    }
 }

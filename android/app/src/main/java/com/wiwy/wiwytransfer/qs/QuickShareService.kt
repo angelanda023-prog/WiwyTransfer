@@ -127,7 +127,7 @@ class QuickShareService(
         val listener = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(s: NsdServiceInfo) {
                 Log.i("WiwyQS", "Anunciado en Quick Share: ${s.serviceName}")
-                onStatus("✅ Visible en Quick Share (puerto $port)")
+                onStatus("✅ Visible en Quick Share")
             }
             override fun onRegistrationFailed(s: NsdServiceInfo, errorCode: Int) {
                 Log.e("WiwyQS", "Fallo al anunciar Quick Share: $errorCode")

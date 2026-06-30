@@ -14,7 +14,7 @@ class QsOutgoingFile(
 interface OutboundDelegate {
     fun onEstablished()
     fun onAccepted()
-    fun onProgress(fraction: Double)
+    fun onProgress(sent: Long, total: Long, name: String)
     fun onFinished()
     fun onFailed(message: String)
 }
@@ -255,7 +255,7 @@ class OutboundNearbyConnection(
                         encryptAndSendOfflineFrame(wrapFile(chunk))
                         offset += n
                         sentBytes += n
-                        delegate.onProgress(if (totalBytes > 0) sentBytes.toDouble() / totalBytes else 0.0)
+                        delegate.onProgress(sentBytes, totalBytes, out.meta.name)
                     }
                     // EOF chunk
                     val eof = PayloadTransferFrame.newBuilder()

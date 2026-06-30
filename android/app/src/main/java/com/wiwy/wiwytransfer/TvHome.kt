@@ -2,6 +2,7 @@ package com.wiwy.wiwytransfer
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -342,56 +343,204 @@ private fun TvDevices(vm: AppViewModel, onBack: () -> Unit) {
     val qsPeers by vm.qsPeers.collectAsStateWithLifecycle()
     val peers by vm.peers.collectAsStateWithLifecycle()
     val qsSend by vm.qsSend.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    Column(Modifier.fillMaxSize().padding(28.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 36.dp, vertical = 24.dp)) {
+        // Cabecera
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Enviar a…", color = Color.White, style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f))
-        }
-        Text("${selected.size} archivo(s) · ${formatBytes(selected.sumOf { it.size })}",
-            color = Color(0xCCFFFFFF))
-        Spacer(Modifier.height(8.dp))
-
-        when (val s = qsSend) {
-            is QsSendState.Sending -> {
-                Text("Enviando… ${(s.fraction * 100).toInt()}%", color = Color.White)
-                LinearProgressIndicator(progress = { s.fraction.toFloat() }, modifier = Modifier.fillMaxWidth())
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = R.mipmap.ic_launcher),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Enviar archivos", color = Color.White,
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Comparte sin límites, de forma rápida y segura",
+                    color = Color(0xFF7FA8D9), style = MaterialTheme.typography.bodyMedium)
             }
-            QsSendState.Done -> Text("✅ Enviado", color = Color.White)
-            is QsSendState.Failed -> Text("❌ ${s.message}", color = Color(0xFFFFCDD2))
+            PillButton(Icons.Default.QrCodeScanner, "Escanear código QR") {
+                android.widget.Toast.makeText(context, "Próximamente", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // Tarjeta de progreso (solo al enviar)
+        when (val s = qsSend) {
+            is QsSendState.Sending -> SendProgressCard(
+                fraction = s.fraction.toFloat(),
+                name = s.name,
+                sent = s.sent,
+                total = s.total,
+                etaSeconds = s.etaSeconds,
+            )
+            QsSendState.Done -> StatusCard("✅ Enviado", Color(0xFFA5D6A7))
+            is QsSendState.Failed -> StatusCard("❌ ${s.message}", Color(0xFFFFCDD2))
             QsSendState.Idle -> {}
         }
-        Spacer(Modifier.height(8.dp))
-        Text("Quick Share (el receptor debe estar en “Recibir”)", color = Color(0xCCFFFFFF),
-            style = MaterialTheme.typography.bodySmall)
 
-        if (qsPeers.isEmpty() && peers.isEmpty()) {
-            Text("Buscando dispositivos…", color = Color(0xCCFFFFFF))
+        if (qsSend != QsSendState.Idle) Spacer(Modifier.height(20.dp))
+
+        Text("Enviar a…", color = Color.White,
+            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Selecciona un dispositivo para enviar tus archivos",
+            color = Color(0xFF7FA8D9), style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(12.dp))
+
+        // Lista de dispositivos
+        Column(
+            Modifier.weight(1f).fillMaxWidth()
+                .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+        ) {
+            if (qsPeers.isEmpty() && peers.isEmpty()) {
+                Text("Buscando dispositivos…", color = Color(0xCCFFFFFF),
+                    modifier = Modifier.padding(vertical = 12.dp))
+            }
+            qsPeers.forEach { p -> DeviceRow(p.name, "Quick Share", quickShare = true) { vm.sendQs(p) } }
+            peers.forEach { p -> DeviceRow(p.displayName, "WiwyTransfer", quickShare = false) { vm.sendTo(p) } }
         }
-        qsPeers.forEach { p -> DeviceRow(p.name, "Quick Share") { vm.sendQs(p) } }
-        peers.forEach { p -> DeviceRow(p.displayName, "WiwyTransfer") { vm.sendTo(p) } }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Pie: aviso + historial
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(BgCard).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Default.Lightbulb, contentDescription = null,
+                    tint = Color(0xFFFFD54F), modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("Asegúrate de que el dispositivo receptor tenga “Visible en Quick Share” activado",
+                    color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.width(16.dp))
+            PillButton(Icons.Default.History, "Ver historial de transferencias") {
+                android.widget.Toast.makeText(context, "Próximamente", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SendProgressCard(fraction: Float, name: String, sent: Long, total: Long, etaSeconds: Long) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(BgCard).padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.fillMaxSize(),
+                strokeWidth = 6.dp,
+                color = Color(0xFF2979FF),
+                trackColor = Color(0x33FFFFFF),
+            )
+            Text("${(fraction * 100).toInt()}%", color = Color.White,
+                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.width(18.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Enviando 1 archivo", color = Color.White,
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("$name · ${formatBytes(total)}", color = Color(0xCCFFFFFF),
+                style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                color = Color(0xFF2979FF),
+                trackColor = Color(0x33FFFFFF),
+            )
+        }
+        Spacer(Modifier.width(18.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text("Restante: ${formatEta(etaSeconds)}", color = Color(0xCCFFFFFF),
+                style = MaterialTheme.typography.bodySmall)
+            Text("${formatBytes(sent)} / ${formatBytes(total)}", color = Color(0xCCFFFFFF),
+                style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun StatusCard(text: String, color: Color) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(BgCard).padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, color = color, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+private fun formatEta(seconds: Long): String {
+    val s = seconds.coerceAtLeast(0)
+    return "%02d:%02d".format(s / 60, s % 60)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PillButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.onFocusChanged { focused = it.isFocused },
+        shape = RoundedCornerShape(24.dp),
+        color = if (focused) BgCardFocus else BgCard,
+        border = if (focused) BorderStroke(2.dp, Color.White) else null,
+    ) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = Color(0xFF7FA8D9), modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(label, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeviceRow(name: String, kind: String, onClick: () -> Unit) {
+private fun DeviceRow(name: String, kind: String, quickShare: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).onFocusChanged { focused = it.isFocused },
-        shape = RoundedCornerShape(10.dp),
-        color = if (focused) TileFocus else TileBg,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).onFocusChanged { focused = it.isFocused },
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Transparent,
         border = if (focused) BorderStroke(2.dp, Color.White) else null,
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Devices, contentDescription = null, tint = Color.White)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(name, color = Color.White)
-                Text(kind, color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+        Box(
+            Modifier.fillMaxWidth().background(
+                if (focused) Brush.linearGradient(listOf(Color(0xFF2979FF), Color(0xFF1565C0)))
+                else Brush.linearGradient(listOf(BgCard, BgCard))
+            )
+        ) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(52.dp).clip(CircleShape)
+                        .background(if (focused) Color.White else Color(0xFF1E2A45)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Computer, contentDescription = null,
+                        tint = if (focused) Color(0xFF1565C0) else Color(0xFF7FA8D9),
+                        modifier = Modifier.size(28.dp))
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(name, color = Color.White,
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(kind, color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodyMedium)
+                }
+                Icon(
+                    if (quickShare) Icons.Default.Wifi else Icons.Default.Send,
+                    contentDescription = kind,
+                    tint = if (quickShare) Color(0xFF4CAF50) else Color(0xFF42A5F5),
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xCCFFFFFF))
             }
-            Icon(Icons.Default.Send, contentDescription = "Enviar", tint = Color.White)
         }
     }
 }

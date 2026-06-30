@@ -71,7 +71,14 @@ sealed interface QsReceiveState {
 
 sealed interface QsSendState {
     data object Idle : QsSendState
-    data class Sending(val fraction: Double) : QsSendState
+    data class Sending(
+        val sent: Long,
+        val total: Long,
+        val name: String,
+        val etaSeconds: Long,
+    ) : QsSendState {
+        val fraction: Double get() = if (total > 0) sent.toDouble() / total else 0.0
+    }
     data object Done : QsSendState
     data class Failed(val message: String) : QsSendState
 }
@@ -167,11 +174,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val files = _selectedFiles.value
         if (files.isEmpty()) return
         com.wiwy.wiwytransfer.qs.QsDebug.clear()
-        _qsSend.value = QsSendState.Sending(0.0)
+        val totalAll = files.sumOf { it.size }
+        val firstName = files.firstOrNull()?.name ?: ""
+        _qsSend.value = QsSendState.Sending(0, totalAll, firstName, 0)
+        var startMs = 0L
         quickShare.sendFiles(peer, files, object : OutboundDelegate {
             override fun onEstablished() {}
-            override fun onAccepted() { _qsSend.value = QsSendState.Sending(0.0) }
-            override fun onProgress(fraction: Double) { _qsSend.value = QsSendState.Sending(fraction) }
+            override fun onAccepted() {
+                startMs = System.currentTimeMillis()
+                _qsSend.value = QsSendState.Sending(0, totalAll, firstName, 0)
+            }
+            override fun onProgress(sent: Long, total: Long, name: String) {
+                val elapsed = (System.currentTimeMillis() - startMs).coerceAtLeast(1)
+                val eta = if (sent > 0) ((total - sent) * elapsed / sent) / 1000 else 0
+                _qsSend.value = QsSendState.Sending(sent, total, name, eta)
+            }
             override fun onFinished() { _qsSend.value = QsSendState.Done }
             override fun onFailed(message: String) { _qsSend.value = QsSendState.Failed(message) }
         })

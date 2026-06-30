@@ -15,8 +15,10 @@ android {
         applicationId = "com.wiwy.wiwytransfer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20401
-        versionName = "2.4.1"
+        // versionCode SIEMPRE creciente (interno, no se muestra) para poder instalar
+        // sobre versiones anteriores sin desinstalar. versionName es lo que ve el usuario.
+        versionCode = 20402
+        versionName = "1.0.0"
     }
 
     signingConfigs {

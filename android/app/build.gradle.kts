@@ -15,8 +15,8 @@ android {
         applicationId = "com.wiwy.wiwytransfer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20308
-        versionName = "2.3.8"
+        versionCode = 20309
+        versionName = "2.3.9"
     }
 
     signingConfigs {

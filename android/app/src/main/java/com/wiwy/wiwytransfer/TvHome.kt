@@ -3,13 +3,16 @@ package com.wiwy.wiwytransfer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -21,10 +24,11 @@ import com.wiwy.wiwytransfer.storage.MediaRepo
 import com.wiwy.wiwytransfer.storage.StorageBrowser
 import kotlinx.coroutines.launch
 
-private val BgTop = Color(0xFF1B2227)   // gris Oxford (barra superior)
-private val BgMain = Color(0xFF2B3640)  // gris Oxford (fondo)
-private val TileBg = Color(0xFF1565C0)  // tarjeta azul
-private val TileFocus = Color(0xFF42A5F5) // azul claro al enfocar
+private val BgMain = Color(0xFF0A1020)   // azul muy oscuro (fondo)
+private val BgCard = Color(0xFF131C2E)   // tarjeta categoría
+private val BgCardFocus = Color(0xFF1E2A45)
+private val TileBg = Color(0xFF1565C0)
+private val TileFocus = Color(0xFF42A5F5)
 
 private object Exts {
     val DOC = setOf("pdf", "doc", "docx", "txt", "xls", "xlsx", "ppt", "pptx", "zip", "rar")
@@ -217,88 +221,117 @@ private fun TvHome(
     onApk: () -> Unit,
 ) {
     val qsStatus by vm.qsStatus.collectAsStateWithLifecycle()
+    val storage = remember { storageInfo() }
 
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().background(BgTop).padding(horizontal = 28.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 36.dp, vertical = 24.dp)) {
+        // Cabecera
+        Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = R.mipmap.ic_launcher),
                 contentDescription = null,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(48.dp),
             )
             Spacer(Modifier.width(12.dp))
-            Text("WiwyTransfer", color = Color.White,
-                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Column {
+                Text("WiwyTransfer", color = Color.White,
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Comparte sin límites", color = Color(0xFF7FA8D9),
+                    style = MaterialTheme.typography.bodyMedium)
+            }
             Spacer(Modifier.weight(1f))
-            Text(qsStatus, color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+            Text(qsStatus, color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodyMedium)
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            BigTile("Enviar", Icons.Default.Upload, onClick = onSend)
-            Spacer(Modifier.width(40.dp))
-            BigTile("Recibir", Icons.Default.Download, onClick = onReceive)
+        // ENVIAR / RECIBIR
+        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            BigCard(Modifier.weight(1f), "ENVIAR", "Enviar archivos", Icons.Default.Upload,
+                listOf(Color(0xFF2979FF), Color(0xFF1565C0)), onSend)
+            BigCard(Modifier.weight(1f), "RECIBIR", "Recibir archivos", Icons.Default.Download,
+                listOf(Color(0xFF00BCD4), Color(0xFF00838F)), onReceive)
         }
 
-        Spacer(Modifier.height(36.dp))
+        Spacer(Modifier.height(20.dp))
 
-        // Fila de categorías responsive: ocupa todo el ancho
+        // Categorías
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            CatTile(Modifier.weight(1f), "Mis archivos", Icons.Default.Folder, Color(0xFF4FC3F7)) { onBrowse("Mis archivos", null, false) }
+            CatTile(Modifier.weight(1f), "Videos", Icons.Default.Movie, Color(0xFFB388FF)) { onMedia("Vídeos", MediaKind.VIDEOS) }
+            CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image, Color(0xFF4DD0E1)) { onMedia("Imágenes", MediaKind.IMAGES) }
+            CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote, Color(0xFFFF80AB)) { onMedia("Música", MediaKind.AUDIO) }
+            CatTile(Modifier.weight(1f), "APK", Icons.Default.Android, Color(0xFF8BC34A)) { onApk() }
+            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description, Color(0xFFFFD54F)) { onFilesByExt("Documentos", Exts.DOC) }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // Barra de almacenamiento
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(BgCard).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            CatTile(Modifier.weight(1f), "Mis archivos", Icons.Default.Folder) { onBrowse("Mis archivos", null, false) }
-            CatTile(Modifier.weight(1f), "Vídeos", Icons.Default.Movie) { onMedia("Vídeos", MediaKind.VIDEOS) }
-            CatTile(Modifier.weight(1f), "Imágenes", Icons.Default.Image) { onMedia("Imágenes", MediaKind.IMAGES) }
-            CatTile(Modifier.weight(1f), "Música", Icons.Default.MusicNote) { onMedia("Música", MediaKind.AUDIO) }
-            CatTile(Modifier.weight(1f), "APK", Icons.Default.Android) { onApk() }
-            CatTile(Modifier.weight(1f), "Documentos", Icons.Default.Description) { onFilesByExt("Documentos", Exts.DOC) }
+            Icon(Icons.Default.Storage, contentDescription = null, tint = Color(0xFF7FA8D9), modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Almacenamiento interno", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                Text(storage.first, color = Color(0xCCFFFFFF), style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(4.dp))
+                LinearProgressIndicator(progress = { storage.second }, modifier = Modifier.fillMaxWidth().height(6.dp))
+            }
+        }
+    }
+}
+
+private fun storageInfo(): Pair<String, Float> {
+    return runCatching {
+        val stat = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+        val total = stat.totalBytes
+        val used = total - stat.availableBytes
+        Pair("${formatBytes(used)} / ${formatBytes(total)}", if (total > 0) used.toFloat() / total else 0f)
+    }.getOrDefault(Pair("", 0f))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BigCard(modifier: Modifier, title: String, subtitle: String, icon: ImageVector, gradient: List<Color>, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxHeight().onFocusChanged { focused = it.isFocused },
+        shape = RoundedCornerShape(22.dp),
+        color = Color.Transparent,
+        border = if (focused) BorderStroke(3.dp, Color.White) else null,
+    ) {
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(gradient)), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(96.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = title, tint = gradient.last(), modifier = Modifier.size(76.dp))
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(title, color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = Color(0xE6FFFFFF), style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BigTile(label: String, icon: ImageVector, onClick: () -> Unit) {
+private fun CatTile(modifier: Modifier, label: String, icon: ImageVector, iconColor: Color, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            onClick = onClick,
-            modifier = Modifier.size(130.dp).onFocusChanged { focused = it.isFocused },
-            shape = RoundedCornerShape(14.dp),
-            color = if (focused) TileFocus else TileBg,
-            border = if (focused) BorderStroke(3.dp, Color.White) else null,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(56.dp))
-            }
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(120.dp).onFocusChanged { focused = it.isFocused },
+        shape = RoundedCornerShape(16.dp),
+        color = if (focused) BgCardFocus else BgCard,
+        border = if (focused) BorderStroke(3.dp, Color.White) else null,
+    ) {
+        Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(icon, contentDescription = label, tint = iconColor, modifier = Modifier.size(40.dp))
+            Spacer(Modifier.height(10.dp))
+            Text(label, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(label, color = Color.White, fontWeight = FontWeight.Bold)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CatTile(modifier: Modifier, label: String, icon: ImageVector, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth().height(90.dp).onFocusChanged { focused = it.isFocused },
-            shape = RoundedCornerShape(12.dp),
-            color = if (focused) TileFocus else TileBg,
-            border = if (focused) BorderStroke(3.dp, Color.White) else null,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(34.dp))
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(label, color = Color.White, style = MaterialTheme.typography.bodySmall, maxLines = 1)
     }
 }
 

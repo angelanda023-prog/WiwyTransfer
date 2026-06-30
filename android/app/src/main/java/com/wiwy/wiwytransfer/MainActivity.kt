@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,15 +36,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = wiwyColorScheme()) {
                 var showSplash by rememberSaveable { mutableStateOf(true) }
-                androidx.compose.animation.Crossfade(
-                    targetState = showSplash,
-                    animationSpec = androidx.compose.animation.core.tween(450),
-                    label = "splash",
-                ) { splash ->
-                    if (splash) {
-                        WiwySplash(onFinish = { showSplash = false })
-                    } else {
-                        if (isTv) TvAppScreen(vm) else AppScreen(vm)
+                androidx.compose.foundation.layout.Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(androidx.compose.ui.graphics.Color(0xFF05080F)),
+                ) {
+                    androidx.compose.animation.Crossfade(
+                        targetState = showSplash,
+                        animationSpec = androidx.compose.animation.core.tween(500),
+                        label = "splash",
+                    ) { splash ->
+                        if (splash) {
+                            WiwySplash(onFinish = { showSplash = false })
+                        } else {
+                            if (isTv) TvAppScreen(vm) else AppScreen(vm)
+                        }
                     }
                 }
             }

@@ -61,7 +61,7 @@ fun WiwySplash(onFinish: () -> Unit) {
     // Reloj maestro 0..1 que recorre toda la secuencia (no bloquea el hilo principal).
     val t = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        t.animateTo(1f, tween(durationMillis = 2500, easing = LinearEasing))
+        t.animateTo(1f, tween(durationMillis = 3500, easing = LinearEasing))
         onFinish()
     }
 
@@ -79,7 +79,7 @@ fun WiwySplash(onFinish: () -> Unit) {
     val density = LocalDensity.current
 
     // Transición de salida (fade + scale) aplicada a todo.
-    val outP = phase(t.value, 0.95f, 1f)
+    val outP = phase(t.value, 0.96f, 1f)
 
     Box(
         Modifier
@@ -106,12 +106,12 @@ fun WiwySplash(onFinish: () -> Unit) {
             // Fases de la secuencia
             val tv = t.value
             val seed = phase(tv, 0f, 0.12f)
-            val converge = phase(tv, 0.05f, 0.55f)
-            val ringsAlpha = phase(tv, 0.18f, 0.42f)
-            val planeForm = phase(tv, 0.40f, 0.70f)
-            val bounceP = phase(tv, 0.62f, 0.80f)
-            val trailP = phase(tv, 0.66f, 0.86f)
-            val shineP = phase(tv, 0.80f, 0.93f)
+            val converge = phase(tv, 0.05f, 0.52f)
+            val ringsAlpha = phase(tv, 0.16f, 0.40f)
+            val planeForm = phase(tv, 0.38f, 0.64f)
+            val bounceP = phase(tv, 0.60f, 0.74f)
+            val trailP = phase(tv, 0.62f, 0.80f)
+            val shineP = phase(tv, 0.74f, 0.86f)
 
             val planeAlpha = easeOutCubic(planeForm)
             val brightness = planeForm
@@ -137,7 +137,7 @@ fun WiwySplash(onFinish: () -> Unit) {
         }
 
         // Texto con fade de abajo hacia arriba.
-        val textP = phase(t.value, 0.70f, 0.90f)
+        val textP = phase(t.value, 0.64f, 0.82f)
         val textEase = easeOutCubic(textP)
         Column(
             Modifier

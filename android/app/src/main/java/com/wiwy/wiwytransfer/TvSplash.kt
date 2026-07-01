@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -61,8 +62,19 @@ fun WiwySplash(onFinish: () -> Unit) {
     // Reloj maestro 0..1 que recorre toda la secuencia (no bloquea el hilo principal).
     val t = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
-        t.animateTo(1f, tween(durationMillis = 6500, easing = LinearEasing))
+        t.animateTo(1f, tween(durationMillis = 8500, easing = LinearEasing))
         onFinish()
+    }
+
+    // Sonido de nave viajando (sintetizado, res/raw/splash_whoosh.wav).
+    val context = LocalContext.current
+    DisposableEffect(Unit) {
+        val mp = runCatching { android.media.MediaPlayer.create(context, R.raw.splash_whoosh) }.getOrNull()
+        runCatching { mp?.start() }
+        onDispose {
+            runCatching { if (mp?.isPlaying == true) mp.stop() }
+            runCatching { mp?.release() }
+        }
     }
 
     // Rotación continua de los anillos (independiente del reloj maestro).

@@ -17,8 +17,8 @@ android {
         targetSdk = 35
         // versionCode SIEMPRE creciente (interno, no se muestra) para poder instalar
         // sobre versiones anteriores sin desinstalar. versionName es lo que ve el usuario.
-        versionCode = 20410
-        versionName = "1.0.8"
+        versionCode = 20411
+        versionName = "1.0.9"
     }
 
     signingConfigs {

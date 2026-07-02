@@ -67,13 +67,14 @@ fun WiwySplash(onFinish: () -> Unit) {
     }
 
     // Sonido de "transferencia completada", sincronizado con la animación:
-    // el ding (~1.40 s del audio) coincide con el destello final del logo (~6.8 s).
+    // el acorde de éxito (~1.6 s del audio) coincide con el destello final del logo (~6.8 s).
     val context = LocalContext.current
     val player = remember {
         runCatching { android.media.MediaPlayer.create(context, R.raw.transfer_complete) }.getOrNull()
     }
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(5400)
+        runCatching { player?.setVolume(1f, 1f) }
+        kotlinx.coroutines.delay(5200)
         runCatching { player?.start() }
     }
     DisposableEffect(Unit) {

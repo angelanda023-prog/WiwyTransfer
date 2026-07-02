@@ -66,14 +66,20 @@ fun WiwySplash(onFinish: () -> Unit) {
         onFinish()
     }
 
-    // Sonido de nave viajando (sintetizado, res/raw/splash_whoosh.wav).
+    // Sonido de "transferencia completada", sincronizado con la animación:
+    // el ding (~1.40 s del audio) coincide con el destello final del logo (~6.8 s).
     val context = LocalContext.current
+    val player = remember {
+        runCatching { android.media.MediaPlayer.create(context, R.raw.transfer_complete) }.getOrNull()
+    }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(5400)
+        runCatching { player?.start() }
+    }
     DisposableEffect(Unit) {
-        val mp = runCatching { android.media.MediaPlayer.create(context, R.raw.splash_whoosh) }.getOrNull()
-        runCatching { mp?.start() }
         onDispose {
-            runCatching { if (mp?.isPlaying == true) mp.stop() }
-            runCatching { mp?.release() }
+            runCatching { if (player?.isPlaying == true) player.stop() }
+            runCatching { player?.release() }
         }
     }
 

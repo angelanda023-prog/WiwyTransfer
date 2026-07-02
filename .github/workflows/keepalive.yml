@@ -1,0 +1,44 @@
+name: Keepalive
+
+# Mantiene "vivos" Supabase y GitHub:
+#  - Ping a Supabase cada 2 días (evita que el proyecto se pause por inactividad).
+#  - Un commit mínimo cada 2 días (evita que GitHub deshabilite este cron:
+#    los workflows programados se desactivan tras 60 días sin actividad del repo).
+on:
+  schedule:
+    - cron: '0 6 */2 * *'   # cada 2 días, 06:00 UTC
+  workflow_dispatch:         # permite ejecutarlo a mano
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ping a Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: bash scripts/supabase-keepalive.sh
+
+      - name: Mantener el repo activo (evita que GitHub deshabilite el cron)
+        run: |
+          mkdir -p .keepalive
+          date -u +%FT%TZ > .keepalive/last-run.txt
+          git config user.name "keepalive-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .keepalive/last-run.txt
+          if git diff --cached --quiet; then
+            echo "sin cambios"
+          else
+            # [skip ci] evita disparar ci.yml/release.yml con este commit
+            git commit -m "chore: keepalive $(date -u +%F) [skip ci]"
+            git push
+          fi

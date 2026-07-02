@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.em
 import androidx.compose.material3.Text
+import kotlinx.coroutines.flow.first
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -74,7 +75,8 @@ fun WiwySplash(onFinish: () -> Unit) {
     }
     LaunchedEffect(Unit) {
         runCatching { player?.setVolume(1f, 1f) }
-        kotlinx.coroutines.delay(5200)
+        // dispara la campana justo cuando ocurre el destello del logo (no por temporizador)
+        snapshotFlow { t.value >= 0.76f }.first { it }
         runCatching { player?.start() }
     }
     DisposableEffect(Unit) {

@@ -129,7 +129,7 @@ fun TvSections(vm: AppViewModel, initial: Section, onSend: (List<QsOutgoingFile>
         Column(Modifier.width(240.dp).fillMaxHeight().background(BgSide).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_fg_badge),
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_wiwy_plane),
                     contentDescription = null, modifier = Modifier.size(36.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
